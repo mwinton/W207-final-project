@@ -1,0 +1,175 @@
+---
+title: "W207 Final Lab - EDA"
+author: "Michael Winton"
+date: "7/7/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(Hmisc)
+```
+
+## Load school data
+
+```{r}
+schools <- read.csv('2016 School Explorer.csv')
+summary(schools[,1:41])  # non-grade-specific columns
+# str(schools)
+```
+
+_Thoughts on columns to keep..._
+
+Descriptive Columns:
+
+- School.Name
+- Location.Code (join to shsat$DBN)
+
+Possible Explanatory Vars:
+
+- District (integer)
+- City (convert to factor)
+- Zip (convert to factor)
+- Grade.Low (e.g. PK; convert to factor)
+- Grade.High (e.g. 12; convert to factor)
+- Community.School (Yes/No; convert to factor)
+
+- Economic.Need.Index (decimal)
+- School.Income.Estimate (consider binning)
+
+- Percent.ELL (convert to decimal)
+- Percent.Asian  (convert to decimal)
+- Percent.Black (convert to decimal)
+- Percent.Hispanic (convert to decimal)
+- Percent.Black...Hispanic (convert to decimal)
+- Percent.White (convert to decimal)
+
+- Student.Attendance.Rate (convert to decimal)
+- Percent.of.Students.Chronically.Absent (convert to decimal)
+- Rigorous.Instruction.. (convert to decimal)
+- Collaborative.Teachers.. (convert to decimal)
+- Supportive.Environment.. (convert to decimal)
+- Effective.School.Leadership.. (convert to decimal)
+- Strong.Family.Community.Ties.. (convert to decimal)
+- Trust.. (convert to decimal)
+
+- Average.ELA.Proficiency (decimal)
+- Average.Math.Proficiency (decimal)
+
+Comments:
+- Common Core columns - we have options for percentages or buckets (both are provided)
+- Propose ignoring the grade x demographic columns at least in initial model
+- Dataet has one row per school
+
+## Load SHSAT data
+
+```{r}
+shsat <- read.csv('D5 SHSAT Registrations and Testers.csv')
+head(shsat)
+str(shsat)
+describe(shsat)
+```
+
+Comments:
+- shsat$DBN = schools$Location.Code
+- data has > 1 row per school
+- consider aggregrating Year.of.SHST (ranges from 2013-2016)
+- consider aggregating Grade.level (all are either 8 or 9)
+- use Enrollment.on.10.31 to normalize the other columns
+- also consider Enrollment.on.10.31 as an explanatory variable
+- look at number registered as primary outcome var
+- also look at % of registered who actually took the test as secondary potential outcome var
+
+## Flatten `shsat` so we have one row per school (for joining)
+
+Logic:
+- aggregating 8th and 9th graders together
+- creating separate columns for 2013, 2014, 2015, 2016
+- do a full join, so even if some years had no registrations, the school will appear in the result set
+- use DBN only; dropping school name (2 schools got renamed during this time period)
+
+```{r}
+# drop school name to avoid duplicate rows
+tmp <- shsat %>% select(-School.name)
+
+# aggregate Grade.level 8,9 together
+tmp <- aggregate(. ~ DBN + Year.of.SHST, tmp, sum)
+
+# drop Grade.level column now that we've aggregated
+tmp <- tmp %>% select(-Grade.level)
+
+# rename columns
+# drop unnecessary ones
+tmp2013 <- tmp %>%
+  filter(Year.of.SHST==2013) %>%
+  rename(enroll_2013 = Enrollment.on.10.31,
+         num_reg_2013 = Number.of.students.who.registered.for.the.SHSAT,
+         num_test_2013 = Number.of.students.who.took.the.SHSAT) %>%
+  mutate(frac_reg_2013 = num_reg_2013/enroll_2013,
+         frac_test_2013 = num_test_2013/num_reg_2013) %>%
+  select(-Year.of.SHST)
+tmp2014 <- tmp %>%
+  filter(Year.of.SHST==2014) %>%
+  rename(enroll_2014 = Enrollment.on.10.31,
+         num_reg_2014 = Number.of.students.who.registered.for.the.SHSAT,
+         num_test_2014 = Number.of.students.who.took.the.SHSAT) %>%
+  mutate(frac_reg_2014 = num_reg_2014/enroll_2014,
+         frac_test_2014 = num_test_2014/num_reg_2014) %>%
+  select(-Year.of.SHST)
+tmp2015 <- tmp %>%
+  filter(Year.of.SHST==2015) %>%
+  rename(enroll_2015 = Enrollment.on.10.31,
+         num_reg_2015 = Number.of.students.who.registered.for.the.SHSAT,
+         num_test_2015 = Number.of.students.who.took.the.SHSAT) %>%
+  mutate(frac_reg_2015 = num_reg_2015/enroll_2015,
+         frac_test_2015 = num_test_2015/num_reg_2015) %>%
+  select(-Year.of.SHST)
+tmp2016 <- tmp %>%
+  filter(Year.of.SHST==2016) %>%
+  rename(enroll_2016 = Enrollment.on.10.31,
+         num_reg_2016 = Number.of.students.who.registered.for.the.SHSAT,
+         num_test_2016 = Number.of.students.who.took.the.SHSAT) %>%
+  mutate(frac_reg_2016 = num_reg_2016/enroll_2016,
+         frac_test_2016 = num_test_2016/num_reg_2016) %>%
+  select(-Year.of.SHST)
+
+# join tables, resulting in one row per school
+shsat_flat <- tmp2013 %>% full_join(tmp2014) %>% full_join(tmp2015) %>% full_join(tmp2016)
+
+# review joined dataframe
+head(shsat_flat)
+summary(shsat_flat)
+# describe(shsat_flat)
+```
+
+_NOTE: there are only 28 distinct schools in this dataset vs. 1272 in the first dataset.  So, as a first pass classification, we could simply classify as a "success" based on existence of data in the second dataset for the school (meaning they register at least some kids for the SHSAT test)._
+
+Next, look at histograms of the numeric columns in this dataframe in case we want to further classify (e.g. high vs. low % registration).
+
+### Plot histograms
+
+```{r}
+# fraction of students registered
+par(mfrow=c(2,2))
+hist(shsat_flat$frac_reg_2013, breaks=10)
+hist(shsat_flat$frac_reg_2014, breaks=10)
+hist(shsat_flat$frac_reg_2015, breaks=10)
+hist(shsat_flat$frac_reg_2016, breaks=10)
+```
+
+Observations:
+- Based on histograms, I'd consider classifying into 3 bins: Low (<0.3), Med(0.3-0.8), High(>0.8)
+
+```{r}
+# fraction of students who registered that actually take the test
+par(mfrow=c(2,2))
+hist(shsat_flat$frac_test_2013, breaks=10)
+hist(shsat_flat$frac_test_2014, breaks=10)
+hist(shsat_flat$frac_test_2015, breaks=10)
+hist(shsat_flat$frac_test_2016, breaks=10)
+```
+
+Observations:
+- Based on histograms, I'd consider classifying into 2 bins: Low (<0.6), High(>0.6)
+- Getting kids to show up for the test doesn't appear to be quite as problematic as getting them to register
