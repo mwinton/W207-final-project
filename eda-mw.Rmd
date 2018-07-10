@@ -14,7 +14,7 @@ library(Hmisc)
 ## Load school data
 
 ```{r}
-schools <- read.csv('2016 School Explorer.csv')
+schools <- read.csv('2016_school_explorer.csv')
 summary(schools[,1:41])  # non-grade-specific columns
 # str(schools)
 ```
@@ -65,7 +65,7 @@ Comments:
 ## Load SHSAT data
 
 ```{r}
-shsat <- read.csv('D5 SHSAT Registrations and Testers.csv')
+shsat <- read.csv('d5_shsat_registrations_and_testers.csv')
 head(shsat)
 str(shsat)
 describe(shsat)
