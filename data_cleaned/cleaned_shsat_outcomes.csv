@@ -1,4 +1,4 @@
-dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
+dbn,num_shsat_test_takers,offers_per_student,pct_test_takers,high_registrations
 20K187,251,75,91,1
 21K239,336,46,78,1
 03M054,257,53,91,1
@@ -58,7 +58,7 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 27Q210,169,3,26,0
 25Q281,70,19,35,0
 20K229,93,16,72,1
-15K088,163,5,39,0
+15K088,163,5,39,1
 30Q126,59,11,32,0
 03M245,70,14,53,1
 15K443,94,10,50,1
@@ -67,7 +67,7 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 27Q202,98,5,26,0
 02M260,36,18,16,0
 24Q102,67,12,46,1
-25Q189,97,7,39,0
+25Q189,97,7,39,1
 21K228,160,4,38,0
 02M413,46,15,21,0
 10X141,75,6,15,0
@@ -84,10 +84,10 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 02M397,36,18,65,1
 06M278,24,14,36,0
 28Q896,29,12,17,0
-24Q128,46,8,39,0
+24Q128,46,8,39,1
 22K206,51,8,43,1
 31R048,70,8,59,1
-19K292,81,4,39,0
+19K292,81,4,39,1
 21K096,114,3,43,1
 29Q109,117,3,33,0
 11X127,133,3,46,1
@@ -95,7 +95,7 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 84K707,24,7,10,0
 26Q266,33,10,42,1
 13K008,42,13,65,1
-11X194,64,5,39,0
+11X194,64,5,39,1
 02M896,70,6,54,1
 31R034,81,2,21,0
 11X181,124,3,42,1
@@ -269,7 +269,7 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 84X492,11,0,9,0
 03M247,12,0,18,0
 06M311,12,0,33,0
-10X315,12,0,40,0
+10X315,12,0,40,1
 17K394,12,0,21,0
 19K662,12,0,7,0
 19K663,12,0,19,0
@@ -438,7 +438,7 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 24Q113,26,0,19,0
 84K740,26,0,36,0
 84K742,26,0,46,1
-84K746,26,0,40,0
+84K746,26,0,40,1
 84K782,26,0,43,1
 84M065,26,0,12,0
 84Q321,26,0,30,0
@@ -515,20 +515,20 @@ dbn,numshsattesttakers,offersperstudent,pct_test_takers,high_registrations
 84K704,37,0,64,1
 84M384,37,0,52,1
 10X279,38,0,27,0
-13K282,38,0,39,0
+13K282,38,0,39,1
 21K303,38,0,20,0
 84K333,38,0,71,1
 84M430,38,0,33,0
 08X125,39,0,33,0
 08X337,39,0,24,0
 08X371,39,0,34,0
-84K593,39,0,40,0
+84K593,39,0,40,1
 31R061,40,0,12,0
 84K803,40,0,16,0
 84M482,40,0,66,1
 84X487,40,0,42,1
 09X232,41,0,23,0
-10X280,41,0,40,0
+10X280,41,0,40,1
 22K014,41,0,19,0
 25Q250,41,0,25,0
 84K651,41,0,89,1
