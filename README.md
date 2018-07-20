@@ -20,3 +20,8 @@ Submissions for the Main Prize Track will be judged based on the following gener
 
 
 More on [PASSNYC](http://www.passnyc.org/opportunity-explorer/).
+
+## Our Analysis
+
+Our analysis is performed in a series of notebooks, with the primary notebook being [final_project_overview.ipynb](final_project_overview.ipynb).  Links to supporting notebooks for data cleaning and ML model development are all included in that notebook.
+
