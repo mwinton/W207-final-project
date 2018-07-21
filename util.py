@@ -46,9 +46,7 @@ def sanitize_column_names(c):
 ### Define our data split
 TEST_SIZE = 0.2
 RANDOM_STATE = 207
-PASSNYC_LABELS = [0,1]
 our_train_test_split = partial(train_test_split,
-                               stratify=PASSNYC_LABELS,
                                test_size=TEST_SIZE,
                                random_state=RANDOM_STATE)
 
