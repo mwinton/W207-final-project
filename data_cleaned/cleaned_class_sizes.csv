@@ -1,4 +1,4 @@
-DBN,Number of Students English,Number of Students Math,Number of Students Science,Number of Students Social Studies,Number of Classes English,Number of Classes Math,Number of Classes Science,Number of Classes Social Studies,Average Class Size English,Average Class Size Math,Average Class Size Science,Average Class Size Social Studies,School Pupil-Teacher Ratio
+dbn,number_of_students_english,number_of_students_math,number_of_students_science,number_of_students_social_studies,number_of_classes_english,number_of_classes_math,number_of_classes_science,number_of_classes_social_studies,average_class_size_english,average_class_size_math,average_class_size_science,average_class_size_social_studies,school_pupil_teacher_ratio
 01M034,158.0,158.0,158.0,158.0,6.0,6.0,6.0,6.0,26.333333333333332,26.333333333333332,26.333333333333332,26.333333333333332,9.0
 01M140,213.0,186.0,182.0,186.0,9.0,9.0,9.0,8.0,23.666666666666668,20.666666666666668,20.22222222222222,23.25,12.599999999999996
 01M184,254.0,254.0,254.0,254.0,10.0,10.0,10.0,10.0,25.4,25.4,25.4,25.4,14.299999999999999
