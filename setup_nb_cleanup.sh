@@ -6,7 +6,7 @@
 
 # Check for dependencies
 brew list >/dev/null 2>&1 || echo "Install homebrew first :-)"
-jq >/dev/null 2>&1 || brew install jq
+jq -h >/dev/null 2>&1 || brew install jq
 
 # Set up git config
 grep nbstrip_full ~/.gitconfig >/dev/null 2>&1 || cat >> ~/.gitconfig <<CONFIG
@@ -33,6 +33,54 @@ alias nbstrip_jq="jq --indent 1 \
     | .cells[].metadata = {} \
     '"
 ALIAS
+
+# Install nbconvert if needed
+pip freeze | grep nbconvert >/dev/null 2>&1
+if [ $? -ne 0 ] ; then
+    pip install nbconvert
+fi
+
+# Set up py script export
+if [ ! -e jupyter_notebook_config.py ] ; then
+	cat > jupyter_notebook_config.py <<NB_TO_PY
+# Source: http://jupyter-notebook.readthedocs.io/en/latest/extending/savehooks.html
+
+import io
+import os
+from notebook.utils import to_api_path
+
+_script_exporter = None
+
+def script_post_save(model, os_path, contents_manager, **kwargs):
+    """convert notebooks to Python script after save with nbconvert
+
+    replaces ipython notebook --script
+    """
+    from nbconvert.exporters.script import ScriptExporter
+
+    if model['type'] != 'notebook':
+        return
+
+    global _script_exporter
+
+    if _script_exporter is None:
+        _script_exporter = ScriptExporter(parent=contents_manager) 
+
+    log = contents_manager.log
+
+    base, ext = os.path.splitext(os_path)
+    py_fname = base + '.py'
+    script, resources = _script_exporter.from_filename(os_path)
+    script_fname = base + resources.get('output_extension', '.txt')
+    log.info("Saving script %s", to_api_path(script_fname, contents_manager.root_dir))
+
+    with io.open(script_fname, 'w', encoding='utf-8') as f:
+        f.write(script)
+
+c.FileContentsManager.post_save_hook = script_post_save
+NB_TO_PY
+
+fi
 
 exit 0
 
