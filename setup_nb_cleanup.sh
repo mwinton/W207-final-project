@@ -5,8 +5,20 @@
 # Run once in your repo as: ./setup_nb_cleanup.sh
 
 # Check for dependencies
-brew list >/dev/null 2>&1 || echo "Install homebrew first :-)"
-jq -h >/dev/null 2>&1 || brew install jq
+os=`uname`
+if [ "$os" == "Darwin" ] ; then
+    brew list >/dev/null 2>&1 || echo "Install homebrew first :-)"
+fi
+jq -h >/dev/null 2>&1
+if [ $? -ne 0 ] ; then
+    if [ "$os" == "Darwin" ] ; then
+        brew install jq
+    else
+        echo "jq not found.  Please install jq utility for your OS."
+    fi
+fi
+
+# jq-based solution idea from: http://timstaley.co.uk/posts/making-git-and-jupyter-notebooks-play-nice/
 
 # Set up git config
 grep nbstrip_full ~/.gitconfig >/dev/null 2>&1 || cat >> ~/.gitconfig <<CONFIG
