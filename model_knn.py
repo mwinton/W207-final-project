@@ -33,15 +33,12 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 from functools import partial
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, cross_validate
 
 # Get train-test split
 train_data, test_data, train_labels, test_labels = util.read_data()
 
-# From the training data, create a validate data split as well
-train_data, validate_data, train_labels, validate_labels =     util.train_test_split(train_data, train_labels)
-
 print("Train data shape: %s" % str(train_data.shape))
-print("Validate data shape: %s" % str(validate_data.shape))
 print("Test data shape: %s" % str(test_data.shape))
 train_data.head()
 
@@ -159,7 +156,7 @@ perf_train_data_nonull.columns[selected_features]
 # 
 # We next run a linear model with L1 penalty and regularization (C) to select features.  Let us see what features it selects.
 
-# In[8]:
+# In[6]:
 
 
 from sklearn.feature_selection import SelectFromModel
@@ -185,7 +182,7 @@ perf_train_data_nonull.columns[selected_features]
 # 
 # Let us now run a tree-based estimator to see which features it selects.
 
-# In[9]:
+# In[7]:
 
 
 from sklearn.ensemble import ExtraTreesClassifier
@@ -242,14 +239,11 @@ perf_train_data_nonull_knn = perf_train_data_nonull[selected_features]
 scaler = StandardScaler().fit(perf_train_data_nonull_knn)
 rescaledX = scaler.transform(perf_train_data_nonull_knn)
 clf = KNeighborsClassifier()
-clf.fit(rescaledX, train_labels)
 
-perf_validate_data_nonull_knn = validate_data.fillna(validate_data.mean())[selected_features]
-scaler = StandardScaler().fit(perf_validate_data_nonull_knn)
-rescaledXval = scaler.transform(perf_validate_data_nonull_knn)
-y = clf.predict(rescaledXval)
-
-print(classification_report(y, validate_labels, target_names=['Predict low-registrations', 'Predict high-registrations']))
+# Do k-fold cross-validation, collecting both "test" accuracy and F1 
+k_folds = 10
+cv_scores = cross_validate(clf, rescaledX, train_labels, cv=k_folds, scoring=['accuracy','f1'])
+util.print_cv_results(cv_scores)
 
 
 # ### Conclusion
