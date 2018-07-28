@@ -196,7 +196,7 @@ cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f
 util.print_cv_results(cv_scores)
 
 
-# F1 score falls by about 4%.  We can ignore this set and use the original set instead.
+# F1 score falls from 0.62 to 0.58.  We can ignore this set and use the original set instead.
 
 # ### KNN with reduced dimensions
 # 
@@ -221,24 +221,29 @@ plt.plot(np.array(cum_explained_variance_ratios))
 plt.show()
 
 
-# We will select first 3 components, which already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
+# We can see that the first 3 components already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
+# 
+# Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[9]:
+# In[16]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
-                         PCA(n_components=3, random_state=207),
+                         PCA(random_state=207),
                          KNeighborsClassifier())
 
-n_neighbors = list(range(1, 10))
+n_components = list(range(1, 8))
+n_neighbors = list(range(1, 15))
 estimator = GridSearchCV(pipeline,
-                        dict(kneighborsclassifier__n_neighbors=n_neighbors),
+                        dict(pca__n_components=n_components,
+                             kneighborsclassifier__n_neighbors=n_neighbors),
                         cv=10, scoring='f1')
 estimator.fit(perf_train_data_nonull, y)
 
-print("Best no. of neighbors: %d (with best f1: %.3f)" % 
-      (estimator.best_params_['kneighborsclassifier__n_neighbors'], 
+print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" % 
+      (estimator.best_params_['pca__n_components'],
+       estimator.best_params_['kneighborsclassifier__n_neighbors'], 
        estimator.best_score_))
 
 
-# We notice that F1 score now goes up a tad, to 0.65.  We lose a lot of interpretability; it may not be worth to go down .
+# PCA with 3 components, followed by KNN with 7 neighbors, gives us F1-score that's up by 0.03: earlier, it was 0.62, now it's 0.65.  But we also lose a lot of interpretability; it may not be worth it to go down this path.
