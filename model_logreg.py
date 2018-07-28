@@ -28,11 +28,13 @@ get_ipython().magic('matplotlib inline')
 # Import cleaned dataset
 merged_df = pd.read_csv('data_merged/combined_data_2018-07-18.csv')
 
+merged_df['number_enrolled'] = np.array((merged_df['num_shsat_test_takers']*100)/merged_df['pct_test_takers']).astype(int)
+
 # Keep the numeric columns.
 features_to_keep = [
                     'high_registrations',
-                    'district', 
-                    'zip',
+                    #'district', 
+                    #'zip',
                     'community_school', 
                     'economic_need_index', 
                     #'school_income_estimate',
@@ -91,7 +93,8 @@ features_to_keep = [
                     'average_class_size_math',
                     'average_class_size_science',
                     'average_class_size_social_studies',
-                    'school_pupil_teacher_ratio'
+                    'school_pupil_teacher_ratio',
+                    'number_enrolled'
                    ]
 
 X = merged_df[features_to_keep]
@@ -122,24 +125,6 @@ X_i.index = X.index
 X_i.head()
 
 
-# 
-# from sklearn.preprocessing import OneHotEncoder
-# 
-# # one-hot encode these features as factors
-# factor_cols = ['district', 'zip']
-# 
-# # get indices for these columns
-# factor_col_ids = []
-# for f in factor_cols:
-#     idx = X_i.columns.get_loc(f)
-#     factor_col_ids.append(idx)
-# factor_col_ids = np.array(factor_col_ids)
-# 
-# print(X_i.shape)
-# ohe_enc = OneHotEncoder(categorical_features=factor_col_ids, handle_unknown='ignore')
-# X_ohe = ohe_enc.fit_transform(X_i)
-# X_ohe
-
 # In[ ]:
 
 
@@ -167,10 +152,31 @@ train_data.head()
 
 
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
+
+scaler = StandardScaler()
+train_data_scaled = scaler.fit_transform(train_data)
+
+lr = LogisticRegression(random_state=207)
+penalty = ['l1', 'l2']
+C = [0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 1.000, 2.000, 3.000, 4.000]
+hyperparameters = dict(C=C, penalty=penalty)
+clf = GridSearchCV(lr, hyperparameters, cv=5, verbose=0)
+best_model = clf.fit(train_data_scaled, train_labels)
+print('Best Penalty:', best_model.best_estimator_.get_params()['penalty'])
+print('Best C:', best_model.best_estimator_.get_params()['C'])
+
+
+
+# In[ ]:
+
+
 from sklearn import metrics
 from sklearn.metrics import classification_report
-c_values = {'C': [0.010, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 1.000, 2.000, 3.000, 4.000]}
+c_values = {'C': [0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 1.000, 2.000, 3.000, 4.000]}
+best_c = 0
+top_f1 = 0
 for c in c_values['C']:
     scaler = StandardScaler()
     train_data_scaled = scaler.fit_transform(train_data)
@@ -180,7 +186,12 @@ for c in c_values['C']:
     log_predicted_labels = log.predict(test_data_scaled)
     log_f1 = metrics.f1_score(test_labels, log_predicted_labels, average='weighted')
     log_accuracy = metrics.accuracy_score(test_labels, log_predicted_labels)
+    if log_f1 > top_f1:
+        top_f1 = log_f1
+        best_c = c
     print("F1 score for C={}: {:.4f}    Accuracy: {:.4f}".format(c, log_f1, log_accuracy))
+
+print("\nThe best C value is {} with an F1 of {:.4f}".format(best_c, top_f1))
 
 
 # ## Make Pipeline and K-fold validation
@@ -191,13 +202,9 @@ for c in c_values['C']:
 from sklearn.model_selection import cross_val_score, cross_validate
 from sklearn.pipeline import make_pipeline
 
-pipe = make_pipeline(StandardScaler(), LogisticRegression(C=1, penalty='l2', random_state=207))
+pipe = make_pipeline(StandardScaler(), LogisticRegression(C=.1, penalty='l1', random_state=207))
 k_folds = 10
 cv_scores = cross_validate(pipe, train_data, train_labels, cv=k_folds, scoring=['accuracy','f1'])
-
-
-# In[ ]:
-
 
 # display accuracy with 95% confidence interval
 cv_accuracy = cv_scores['test_accuracy']
@@ -218,19 +225,25 @@ print ('The F1 score is: %.3f (95%% CI from %.3f to %.3f).' %
 
 
 from sklearn.model_selection import RepeatedStratifiedKFold
-scaler = StandardScaler()
+
+# Run coefficient analysis on 100% of the data
 np_train_data = np.array(scaler.fit_transform(X_i))
 np_train_labels = np.array(y)
+
+# Run k-fold cross-validation with 5 folds 10 times, which means every school is predicted 10 times.
 folds = 5
 repeats = 10
 rskf = RepeatedStratifiedKFold(n_splits=folds, n_repeats= repeats, random_state=207)
 fold_list = []
+
+# Build two dataframes from the results, with columns for each k-fold
 for f in range(1, (folds*repeats)+1):
     fold_list.append('k{}'.format(f))
 coefs = pd.DataFrame(index=train_data.columns, columns=fold_list)
 predictions = pd.DataFrame(index=merged_df.index, columns = fold_list)
-counter = 1
 
+# Iterate through the Repeated Stratified K Fold, and and fill out the DataFrames
+counter = 1
 for train, test in rskf.split(np_train_data, np_train_labels):
     log = LogisticRegression(C=1, penalty='l2', random_state=207)
     log.fit(np_train_data[train], np_train_labels[train])
@@ -239,6 +252,7 @@ for train, test in rskf.split(np_train_data, np_train_labels):
     predictions.iloc[test, counter-1] = predicted_labels
     counter += 1
 
+# Find the average coefficient across all 50 regressions, and sort descending
 coefs['avg'] = coefs.mean(axis=1)
 sorted_coefs = coefs.sort_values(by='avg', ascending=False)
 sorted_coefs
@@ -283,9 +297,86 @@ plt.show()
 # In[ ]:
 
 
+import seaborn as sns
+sns.regplot(X_pos.grade_7_math_4s_hispanic_or_latino, X_pos.grade_7_ela_4s_hispanic_or_latino)
+sns.regplot(X_neg.grade_7_math_4s_hispanic_or_latino, X_neg.grade_7_ela_4s_hispanic_or_latino)
+
+
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax = sns.regplot(X_i.grade_7_math_4s_hispanic_or_latino, y, logistic=True, label="Math")
+ax = sns.regplot(X_i.grade_7_ela_4s_hispanic_or_latino, y, logistic=True, label="English")
+ax.legend()
+
+
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax = sns.regplot(X_i.number_enrolled, y, logistic=True, label="Number Enrolled")
+ax.legend()
+
+
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax.scatter(X_pos.grade_7_math_4s_hispanic_or_latino, X_pos.grade_7_ela_4s_hispanic_or_latino, color='blue', label="high registrants")
+ax.scatter(X_neg.grade_7_math_4s_hispanic_or_latino, X_neg.grade_7_ela_4s_hispanic_or_latino, color='red', label="low registrants")
+ax.set_xlabel('Grade 7 Math 4s, Hispanic or Latino', fontsize=15)
+ax.set_ylabel('Grade 7 ELA 4s, Hispanic or Latino', fontsize=15)
+plt.show
+
+
+# In[ ]:
+
+
 predictions['1s'] = predictions.iloc[:,:50].sum(axis=1)
 predictions['0s'] = (predictions.iloc[:,:50]==0).sum(axis=1)
 predictions['true'] = y
+
+
+# In[ ]:
+
+
+# Create a table of raw results, the vote for truth
+X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], y], axis=1, join_axes=[X_i.index])
+X_predicted = X_predicted.sort_values(by=['1s', '0s'], ascending=[False, True])
+
+
+scaled_X_predicted = scaler.fit_transform(X_predicted)
+avg_coefs = np.array(coefs['avg'])
+weighted_values = np.multiply(scaled_X_predicted, avg_coefs)
+X_result_weighted = X_predicted.copy()
+X_result_weighted.iloc[:, :-3] = weighted_values
+X_result_weighted = X_result_weighted.iloc[:, :]
+drop_cols = []
+for c in X_result_weighted.columns:
+    if X_result_weighted[c].max() - X_result_weighted[c].min() < .8:
+        drop_cols.append(c)
+X_result_weighted_trimmed = X_result_weighted.drop(drop_cols, axis=1)
+X_result_weighted_trimmed.head()
+
+
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(18,200))
+im = ax.imshow(X_result_weighted_trimmed, cmap='viridis')
+ax.xaxis.tick_top()
+ax.set_xticks(np.arange(len(X_result_weighted_trimmed.columns)))
+ax.set_yticks(np.arange(len(X_result_weighted_trimmed.index)))
+ax.set_xticklabels(X_result_weighted_trimmed.columns)
+ax.set_yticklabels(X_result_weighted_trimmed.index)
+plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
+
+#for i in range(len(X_result_weighted_trimmed.index)):
+#    for j in range(len(X_result_weighted_trimmed.columns[1:])):
+#        text = ax.text(j, i, round(X_predicted.loc[X_result_weighted_trimmed.index[i], X_result_weighted_trimmed.columns[j+1]], 1),
+#                       ha="center", va="center", color="w")
+plt.show()
 
 
 # It is perhaps most useful to examine the false positives - that is, schools that did NOT have high SHSAT registrations, but that the model thought SHOULD have.  We'll put the threshhold at 5 or more incorrect "true" classifications, and rank them in descending order (ie, the schools the model got most consistently wrong at the top).
@@ -294,10 +385,46 @@ predictions['true'] = y
 
 
 false_positives = predictions[predictions['true']==0]
-false_positives = false_positives[false_positives['1s'] >= 5].sort_values(by='1s', ascending=False)['1s']
+false_positives = false_positives[false_positives['1s'] > 5].sort_values(by='1s', ascending=False)['1s']
 false_positives
-fp_result = pd.concat([false_positives, X_i.iloc[false_positives.index]], axis=1, join_axes=[false_positives.index])
+fp_result = pd.concat([false_positives, merged_df.iloc[false_positives.index]], axis=1, join_axes=[false_positives.index])
 fp_result
+
+
+# In[ ]:
+
+
+# Just the columns of interest
+fp_features = ['1s',
+              'dbn',
+              'school_name',
+              'number_enrolled',
+              'num_shsat_test_takers']
+# Convert the percent columns to proper floats
+pct_features = ['pct_test_takers',
+               'percent_black__hispanic']
+df_pct = np.multiply(fp_result[pct_features], .01)
+# Merge these seven columns to one DataFram
+df_false_positives = pd.concat([fp_result[fp_features], df_pct], axis=1)
+
+# Determine the number of test takers this school would have needed to meet the median percentage of high_registrations
+median_pct = np.median(merged_df[merged_df['high_registrations']==1]['pct_test_takers'])/100
+predicted_test_takers = np.multiply(df_false_positives['number_enrolled'], median_pct)
+
+# Subtract the number of actual test takers from the hypothetical minimum number
+delta = predicted_test_takers - df_false_positives['num_shsat_test_takers']
+
+# Multiply the delta by the minority percentage of the school to determine how many minority students did not take the test
+minority_delta = np.round(np.multiply(delta, df_false_positives['percent_black__hispanic']), 0)
+
+# Add this number to the dataframe, sort descending, and filter to schools with more than five minority students
+df_false_positives['minority_delta'] = minority_delta
+df_false_positives = df_false_positives[df_false_positives['minority_delta'] > 5]                     .sort_values(by='minority_delta', ascending=False)
+# Create a rank order column
+df_false_positives.insert(0, 'rank', range(1,df_false_positives.shape[0]+1))
+# Write to CSV
+df_false_positives.to_csv('results/results.logreg.csv')
+df_false_positives
 
 
 # Determine p-value for each value in the false positives group
@@ -344,7 +471,7 @@ plt.show()
 false_negatives = predictions[predictions['true']==1]
 false_negatives = false_negatives[false_negatives['0s'] > 5].sort_values(by='0s', ascending=False)['0s']
 false_negatives
-fn_result = pd.concat([false_negatives, X_i.iloc[false_negatives.index]], axis=1, join_axes=[false_negatives.index])
+fn_result = pd.concat([false_negatives, merged_df.iloc[false_negatives.index]], axis=1, join_axes=[false_negatives.index])
 fn_result
 
 
