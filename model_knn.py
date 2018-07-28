@@ -129,7 +129,7 @@ perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
 # 
 # We will now run KNN prediction on the dataset, with the default K value (=5).
 
-# In[5]:
+# In[4]:
 
 
 scaler = MinMaxScaler().fit(perf_train_data_nonull)
@@ -145,7 +145,7 @@ util.print_cv_results(cv_scores)
 
 # We get accuracy of 83% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[6]:
+# In[5]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -167,7 +167,7 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[7]:
+# In[6]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -177,7 +177,7 @@ selected_features = pipeline.steps[1][1].get_support()
 perf_train_data_nonull.columns[selected_features]
 
 
-# In[8]:
+# In[7]:
 
 
 perf_train_data_nonull_sel_cols = ['student_attendance_rate', 'percent_of_students_chronically_absent',
@@ -204,7 +204,7 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[9]:
+# In[8]:
 
 
 cum_explained_variance_ratios = []
@@ -223,7 +223,7 @@ plt.show()
 
 # We will select first 3 components, which already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
 
-# In[10]:
+# In[9]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -233,7 +233,7 @@ pipeline = make_pipeline(StandardScaler(),
 n_neighbors = list(range(1, 10))
 estimator = GridSearchCV(pipeline,
                         dict(kneighborsclassifier__n_neighbors=n_neighbors),
-                        cv=10)
+                        cv=10, scoring='f1')
 estimator.fit(perf_train_data_nonull, y)
 
 print("Best no. of neighbors: %d (with best f1: %.3f)" % 
@@ -241,4 +241,4 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
        estimator.best_score_))
 
 
-# We notice that F1 score now goes up quite a bit, to 0.85.  We lose some interpretability, because we're dealing with a lower-dimensional hyperplane, but the model actually is more functional now, as shown by the F1 score.
+# We notice that F1 score now goes up a tad, to 0.65.  We lose a lot of interpretability; it may not be worth to go down .
