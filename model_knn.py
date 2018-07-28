@@ -125,27 +125,6 @@ perf_train_data.info()
 perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
 
 
-# ### Univariate Model
-# 
-# Next, we try to select N-best features, based on univariate statistical tests.  We use the $\chi^2$ test.
-
-# In[4]:
-
-
-# pipeline = make_pipeline(MinMaxScaler(), 
-#                          SelectKBest(chi2, k=5))
-# pipeline.fit_transform(perf_train_data_nonull, train_labels)
-# selected_features = pipeline.steps[1][1].get_support()
-# perf_train_data_nonull.columns[selected_features]
-
-
-# The univariate _KBest_ model selects the following features, for $K = 5$:
-# * Average ELA proficiency
-# * Average math proficiency
-# * Grade 7 ELA all students
-# * Grade 7 math 4S all students
-# * Student attendance rate
-
 # ### K-Nearest Neighbors Classification
 # 
 # We will now run KNN prediction on the dataset, with the default K value (=5).
