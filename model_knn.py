@@ -2,9 +2,12 @@
 # coding: utf-8
 
 # # K Nearest Neighbors
-# [Return to project overview](final_project_overview.ipynb)
 # 
-# ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
+# ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton
+# 
+# #### W207-4-Summer 2018 Final Project
+# 
+# [Return to project overview](final_project_overview.ipynb)
 
 # In this notebook, we attempt to classify the PASSNYC data via K-Nearest Neighbors algorithm.
 # 
@@ -18,8 +21,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import util
 
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split, cross_validate, GridSearchCV
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.pipeline import make_pipeline
+
+from sklearn.feature_selection import SelectFromModel
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+from sklearn.decomposition import PCA
+
+import util
 
 # set default options
 pd.set_option('display.max_columns', None)
@@ -30,10 +44,6 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 # In[2]:
 
-
-from functools import partial
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import cross_val_score, cross_validate
 
 # Get train-test split
 train_data, test_data, train_labels, test_labels = util.read_data()
@@ -47,35 +57,10 @@ train_data.head()
 # 
 # We will now select some features from the above dataset.
 # 
-# Let us shortlist some interesting columns:
-# * dbn
-# * rigorous_instruction_percent
-# * rigorous_instruction_rating
-# * collaborative_teachers_percent
-# * collaborative_teachers_rating
-# * supportive_environment_percent
-# * supportive_environment_rating
-# * effective_school_leadership_percent
-# * effective_school_leadership_rating
-# * strong_family_community_ties_percent
-# * strong_family_community_ties_rating
-# * trust_percent
-# * trust_rating
-# * student_achievement_rating
-# * average_ela_proficiency
-# * average_math_proficiency
-# * grade_7_ela_all_students_tested
-# * grade_7_ela_4s_all_students
-# * grade_7_math_all_students_tested
-# * grade_7_math_4s_all_students
-# * average_class_size_english
-# * average_class_size_math
-# * school_pupil_teacher_ratio
-# * student_attendance_rate
-# 
 # We ignore the following demographic indicators:
 # * school_name
 # * zip
+# * district
 # * community_school
 # * economic_need_index
 # * school_income_estimate
@@ -98,21 +83,151 @@ train_data.head()
 # Take above (markdown) list and store it in say ~/tmp/col_list.  Then:
 # cat  ~/tmp/col_list | cut -d" " -f2 | sed -E 's/^(.*)$/"\1"/' | tr '\n' ', '
 
-perf_train_data = train_data[["rigorous_instruction_percent","rigorous_instruction_rating","collaborative_teachers_percent","collaborative_teachers_rating","supportive_environment_percent","supportive_environment_rating","effective_school_leadership_percent","effective_school_leadership_rating","strong_family_community_ties_percent","strong_family_community_ties_rating","trust_percent","trust_rating","student_achievement_rating","average_ela_proficiency","average_math_proficiency","grade_7_ela_all_students_tested","grade_7_ela_4s_all_students","grade_7_math_all_students_tested","grade_7_math_4s_all_students","average_class_size_english","average_class_size_math","school_pupil_teacher_ratio","student_attendance_rate"]]
+drop_cols = [
+    # non-numeric
+    'dbn',
+    # correlated with outcome variable
+    'num_shsat_test_takers',
+    'offers_per_student',
+    'pct_test_takers',
+    # demographic or correlated with demographics
+    'school_name',
+    'zip',
+    'district',
+    'community_school',
+    'economic_need_index',
+    'school_income_estimate',
+    'percent_ell',
+    'percent_black',
+    'percent_black__hispanic',
+    'percent_hispanic',
+    'percent_asian',
+    'percent_white',
+    'grade_7_ela_4s_american_indian_or_alaska_native',
+    'grade_7_ela_4s_black_or_african_american',
+    'grade_7_ela_4s_hispanic_or_latino',
+    'grade_7_ela_4s_asian_or_pacific_islander',
+    'grade_7_ela_4s_white',
+    'grade_7_ela_4s_multiracial',
+    'grade_7_ela_4s_limited_english_proficient',
+    'grade_7_ela_4s_economically_disadvantaged',
+    'grade_7_math_4s_american_indian_or_alaska_native',
+    'grade_7_math_4s_black_or_african_american',
+    'grade_7_math_4s_hispanic_or_latino',
+    'grade_7_math_4s_asian_or_pacific_islander',
+    'grade_7_math_4s_white',
+    'grade_7_math_4s_multiracial',
+    'grade_7_math_4s_limited_english_proficient',
+    'grade_7_math_4s_economically_disadvantaged',
+]
+perf_train_data = train_data.drop(drop_cols, axis=1)
+perf_train_data.info()
+perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
 
 
-# ### PCA
+# ### Univariate Model
 # 
-# We will first run PCA to see if we can reduce the dimensions significantly.  It seems like 3 dimensions are enough for variance ratio to be > 0.7.
+# Next, we try to select N-best features, based on univariate statistical tests.  We use the $\chi^2$ test.
 
 # In[4]:
 
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.pipeline import make_pipeline
+# pipeline = make_pipeline(MinMaxScaler(), 
+#                          SelectKBest(chi2, k=5))
+# pipeline.fit_transform(perf_train_data_nonull, train_labels)
+# selected_features = pipeline.steps[1][1].get_support()
+# perf_train_data_nonull.columns[selected_features]
 
-perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
+
+# The univariate _KBest_ model selects the following features, for $K = 5$:
+# * Average ELA proficiency
+# * Average math proficiency
+# * Grade 7 ELA all students
+# * Grade 7 math 4S all students
+# * Student attendance rate
+
+# ### K-Nearest Neighbors Classification
+# 
+# We will now run KNN prediction on the dataset, with the default K value (=5).
+
+# In[5]:
+
+
+scaler = MinMaxScaler().fit(perf_train_data_nonull)
+rescaledX = scaler.transform(perf_train_data_nonull)
+y = train_labels.values.ravel()
+clf = KNeighborsClassifier()
+
+# Do k-fold cross-validation, collecting both "test" accuracy and F1 
+k_folds = 10
+cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f1'])
+util.print_cv_results(cv_scores)
+
+
+# We get accuracy of 83% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
+
+# In[6]:
+
+
+pipeline = make_pipeline(MinMaxScaler(), 
+                         KNeighborsClassifier())
+n_neighbors = list(range(1, 15))
+estimator = GridSearchCV(pipeline,
+                        dict(kneighborsclassifier__n_neighbors=n_neighbors),
+                        cv=10, n_jobs=2, scoring='f1')
+estimator.fit(perf_train_data_nonull, y)
+
+print("Best no. of neighbors: %d (with best f1: %.3f)" % 
+      (estimator.best_params_['kneighborsclassifier__n_neighbors'], 
+       estimator.best_score_))
+
+
+# The best F1 score is 0.62 at $k=3$.
+
+# ### KNN with select features
+# 
+# We will now attempt to do some feature selection, followed by running KNN.
+
+# In[7]:
+
+
+pipeline = make_pipeline(MinMaxScaler(), 
+                         SelectFromModel(ExtraTreesClassifier(random_state=207)))
+pipeline.fit_transform(perf_train_data_nonull, y)
+selected_features = pipeline.steps[1][1].get_support()
+perf_train_data_nonull.columns[selected_features]
+
+
+# In[8]:
+
+
+perf_train_data_nonull_sel_cols = ['student_attendance_rate', 'percent_of_students_chronically_absent',
+       'student_achievement_rating', 'average_ela_proficiency',
+       'average_math_proficiency', 'grade_7_math_4s_all_students',
+       'number_of_students_social_studies', 'average_class_size_science']
+perf_train_data_nonull_sel = perf_train_data_nonull[perf_train_data_nonull_sel_cols]
+scaler = MinMaxScaler().fit(perf_train_data_nonull_sel)
+rescaledX = scaler.transform(perf_train_data_nonull_sel)
+y = train_labels.values.ravel()
+clf = KNeighborsClassifier(n_neighbors=3)
+
+# Do k-fold cross-validation, collecting both "test" accuracy and F1 
+k_folds = 10
+cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f1'])
+util.print_cv_results(cv_scores)
+
+
+# F1 score falls by about 4%.  We can ignore this set and use the original set instead.
+
+# ### KNN with reduced dimensions
+# 
+# We will next attempt to reduce dimensions via PCA, followed by KNN.
+# 
+# First, we will attempt to find the best number of components.
+
+# In[9]:
+
+
 cum_explained_variance_ratios = []
 for n in range(1, 15):
     pipeline = make_pipeline(StandardScaler(), 
@@ -127,125 +242,24 @@ plt.plot(np.array(cum_explained_variance_ratios))
 plt.show()
 
 
-# ### Univariate Model
-# 
-# Next, we try to select N-best features, based on univariate statistical tests.  We use the $\chi^2$ test.
+# We will select first 3 components, which already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
 
-# In[5]:
+# In[10]:
 
-
-from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import chi2
-from sklearn.preprocessing import MinMaxScaler
-
-pipeline = make_pipeline(MinMaxScaler(), 
-                         SelectKBest(chi2, k=5))
-pipeline.fit_transform(perf_train_data_nonull, train_labels)
-selected_features = pipeline.steps[1][1].get_support()
-perf_train_data_nonull.columns[selected_features]
-
-
-# The univariate _KBest_ model selects the following features, for $K = 5$:
-# * Average ELA proficiency
-# * Average math proficiency
-# * Grade 7 ELA all students
-# * Grade 7 math 4S all students
-# * Student attendance rate
-
-# ### Linear Model
-# 
-# We next run a linear model with L1 penalty and regularization (C) to select features.  Let us see what features it selects.
-
-# In[6]:
-
-
-from sklearn.feature_selection import SelectFromModel
-from sklearn.svm import LinearSVC
 
 pipeline = make_pipeline(StandardScaler(), 
-                         SelectFromModel(LinearSVC(C=0.05, penalty='l1', dual=False, random_state=207)))
-pipeline.fit_transform(perf_train_data_nonull, train_labels)
-selected_features = pipeline.steps[1][1].get_support()
-perf_train_data_nonull.columns[selected_features]
+                         PCA(n_components=3, random_state=207),
+                         KNeighborsClassifier())
+
+n_neighbors = list(range(1, 10))
+estimator = GridSearchCV(pipeline,
+                        dict(kneighborsclassifier__n_neighbors=n_neighbors),
+                        cv=10)
+estimator.fit(perf_train_data_nonull, y)
+
+print("Best no. of neighbors: %d (with best f1: %.3f)" % 
+      (estimator.best_params_['kneighborsclassifier__n_neighbors'], 
+       estimator.best_score_))
 
 
-# Therefore, the SVM model selects the following features:
-# 
-# * Collaborative teachers rating
-# * Average math proficiency
-# * Grade 7 ELA 4S all students
-# * Grade 7 math 4S all students
-# * Student attendance rate
-# 
-
-# ### Tree-based Model
-# 
-# Let us now run a tree-based estimator to see which features it selects.
-
-# In[7]:
-
-
-from sklearn.ensemble import ExtraTreesClassifier
-
-pipeline = make_pipeline(StandardScaler(), 
-                         SelectFromModel(ExtraTreesClassifier()))
-pipeline.fit_transform(perf_train_data_nonull, train_labels)
-selected_features = pipeline.steps[1][1].get_support()
-perf_train_data_nonull.columns[selected_features]
-
-
-# The model selects the following features:
-# * Average ELA proficiency
-# * Average math proficiency
-# * Grade 7 ELA 4S all students
-# * Grade 7 math all students
-# * Grade 7 math 4S all students
-# * School pupil teacher ratio
-
-# ### Final selection
-# 
-# Considering all the features above, we can now select a final set of features.
-# 
-# The following are in 1+ models, so we will select them:
-# * Grade 7 math 4S all students
-# * Grade 7 ELA 4S all students
-# * Average math proficiency
-# * Average ELA proficiency
-# * Student attendance rate
-# 
-# The following are columns we will keep as a backup:
-# * School pupil teacher ratio
-# * Grade 7 math all students
-# * Collaborative teachers rating
-# 
-
-# ### K-Nearest Neighbors Classification
-# 
-# We will now run KNN prediction on the dataset.
-
-# In[11]:
-
-
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report
-
-selected_features = ['grade_7_math_4s_all_students',
-                     'grade_7_ela_4s_all_students', 
-                     'average_math_proficiency',
-                     'average_ela_proficiency',
-                     'student_attendance_rate']
-perf_train_data_nonull_knn = perf_train_data_nonull[selected_features]
-
-scaler = StandardScaler().fit(perf_train_data_nonull_knn)
-rescaledX = scaler.transform(perf_train_data_nonull_knn)
-clf = KNeighborsClassifier()
-
-# Do k-fold cross-validation, collecting both "test" accuracy and F1 
-k_folds = 10
-cv_scores = cross_validate(clf, rescaledX, train_labels, cv=k_folds, scoring=['accuracy','f1'])
-util.print_cv_results(cv_scores)
-
-
-# ### Conclusion
-# 
-# The KNN model gives good results for low-registrations, but not for high-registrations.  There is also sparse data for "high registrations", as shown by the "support" column.  We may be better off using an ensemble technique to avoid giving undue weightage to a single classification algorithm.
+# We notice that F1 score now goes up quite a bit, to 0.85.  We lose some interpretability, because we're dealing with a lower-dimensional hyperplane, but the model actually is more functional now, as shown by the F1 score.
