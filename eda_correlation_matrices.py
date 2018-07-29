@@ -34,7 +34,7 @@ Xy_train = pd.concat([train_data, train_labels], axis=1)
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[15]:
+# In[24]:
 
 
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -64,17 +64,20 @@ corr_features = ['grade_7_enrollment',
                  'school_pupil_teacher_ratio',
                  'high_registrations']
 
-# calculate correlation matrix
-corr_matrix = Xy_train[corr_features].corr(method='pearson')
-mask = np.zeros_like(corr_matrix)
-mask[np.triu_indices_from(mask)] = True
 
-# plot heatmap and also save to disk
-plt.rcParams['figure.figsize'] = [12, 8]
-sns.heatmap(corr_matrix, annot=False, fmt="g",
-            xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns,
-           center=0, linewidths=0.5, cmap="coolwarm", mask=mask)
-plt.savefig('plots/corr_matrix_key_features.png', bbox_inches='tight')
+def draw_heatmap(df, fig_name):
+    corr_matrix = df.corr(method='pearson')
+    mask = np.zeros_like(corr_matrix)
+    mask[np.triu_indices_from(mask)] = True
+    
+    # plot heatmap and also save to disk
+    plt.rcParams['figure.figsize'] = [12, 8]
+    sns.heatmap(corr_matrix, annot=False, fmt="g",
+                xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns,
+                center=0, linewidths=0.5, cmap="coolwarm", robust=True, mask=mask)
+    plt.savefig(fig_name, bbox_inches='tight')
+
+draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 
 
 # From this correlation matrix, we see that in general, feature related to test scores or academic proficiency are positively correlated with a high SHSAT registration rate.  Two features in our dataset are most negatively correlated with registration rate: the percentage of students which are chronically absent, as well as the "community school" indicator.  The former is very much intuitive, but the latter fact may be an noteworthy learning from this analysis.  It's also somewhat interesting to see that a _higher_ student-to-teacher ratio correlates positively with registration rate.
@@ -83,7 +86,7 @@ plt.savefig('plots/corr_matrix_key_features.png', bbox_inches='tight')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[17]:
+# In[25]:
 
 
 # choose key features for correlation matrix
@@ -106,14 +109,7 @@ demog_features =  ['economic_need_index',
                    'grade_7_math_4s_economically_disadvantaged',
                    'high_registrations']
 
-# calculate correlation matrix
-corr_matrix = Xy_train[demog_features].corr(method='pearson')
-
-# plot heatmap and also save to disk
-plt.rcParams['figure.figsize'] = [12, 8]
-sns.heatmap(corr_matrix, annot=False, fmt="g", cmap='viridis',
-            xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns)
-plt.savefig('plots/corr_matrix_demographics.png', bbox_inches='tight')
+draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 
 
 # We see that percent Asian and percent white correlate positively with high SHSAT registration rates, whereas percent black and Hispanic correlate negatively with the registration rate.  This is in agreement with the original problem statement that PASSNYC posed.  Additionally, schools with a higher economic need index correlate with lower registration rates.  However, even in light of this fact, it is particularly interesting to note that schools with a high proportion of economically disadvantage students scoring 4's on their ELA and Math exams tend to have higher registration rates, as well.
