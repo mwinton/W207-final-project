@@ -135,7 +135,7 @@ train_data_naive_ohe, test_data_naive_ohe = util.ohe_data(train_data_naive, test
 # ## Train a "naive" model without zip code or school district
 # Next, we will remove the zip and district features and compare accuracy to the model that included one hot-encoded versions of these factors.
 
-# In[8]:
+# In[ ]:
 
 
 drop_cols = ['dbn',
@@ -160,7 +160,7 @@ train_data_naive_nozip.head()
 # ## Estimate the "naive" multilayer perceptron model (without zip or district)
 # 
 
-# In[9]:
+# In[ ]:
 
 
 # discard return vals; only print results
@@ -175,7 +175,7 @@ train_data_naive_nozip.head()
 # ### Preprocess new X_train and X_test datasets
 # We will remove all explicitly demographic columns, as well as economic factors and zip code, which are likely highly correlated with demographics.
 
-# In[10]:
+# In[ ]:
 
 
 # drop SHSAT-related columns
@@ -210,7 +210,7 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 # ## Estimate the "race blind" multilayer perceptron model
 # 
 
-# In[11]:
+# In[ ]:
 
 
 # discard return vals; only print results
@@ -222,35 +222,14 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 # ## Experiment with dimensionality reduction via PCA
 # Since manual feature selection performed poorly, resulting in a confidence interval of F1 spanning from 0 to 1 in both cases, it doesn't seem to be a promising approach.  Next, we experiment with Principal Component Analysis for dimensionality reduction, starting with the "naive" set of columns.
 
-# In[12]:
+# In[8]:
 
 
 # Determine the number of principal components to achieve 90% explained variance
-cum_explained_variance_ratios = [0]
-
-# default number of PCA to number of features
-n_pca = train_data_naive.shape[1]
-for n in range(1, 21):
-    pipeline = make_pipeline(StandardScaler(), PCA(n_components=n))
-    pipeline.fit_transform(train_data_naive)
-    pca = pipeline.steps[1][1]
-    cum_explained_variance_ratios.append(np.sum(pca.explained_variance_ratio_))
-    # stop once we've hit 90% variance explained
-    if (np.sum(pca.explained_variance_ratio_) >= 0.90):
-        # store n_pca for future use
-        print ('With %d principal components, variance explained = %.3f.' %
-               (n, np.sum(pca.explained_variance_ratio_)))
-        n_pca = n
-        break
-    
-plt.plot(np.array(cum_explained_variance_ratios))
-plt.xlabel('# Principal Components')
-plt.ylabel('% Variance Explained')
-plt.grid()
-plt.show()
+n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
 
 
-# In[13]:
+# In[ ]:
 
 
 print('Using %d principal components' % (n_pca))

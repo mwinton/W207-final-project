@@ -1,12 +1,16 @@
 # Utility functions
 
+import matplotlib.pyplot as plt
 import re
 import numpy as np
 import pandas as pd
 from functools import partial
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 
 
 ### Cleanup utility functions
@@ -52,6 +56,34 @@ RANDOM_STATE = 207
 our_train_test_split = partial(train_test_split,
                                test_size=TEST_SIZE,
                                random_state=RANDOM_STATE)
+
+
+def get_num_pcas (train_data, var_explained=0.9):
+    # Determine the number of principal components to achieve target explained variance
+    cum_explained_variance_ratios = [0]
+
+    # default number of PCA to number of features
+    n_pca = train_data.shape[1]
+    for n in range(1, 21):
+        pipeline = make_pipeline(StandardScaler(), PCA(n_components=n))
+        pipeline.fit_transform(train_data)
+        pca = pipeline.steps[1][1]
+        cum_explained_variance_ratios.append(np.sum(pca.explained_variance_ratio_))
+        # stop once we've hit the target variance explained
+        if (np.sum(pca.explained_variance_ratio_) >= var_explained):
+            # store n_pca for future use
+            print ('With %d principal components, variance explained = %.3f.' %
+                   (n, np.sum(pca.explained_variance_ratio_)))
+            n_pca = n
+            break
+
+    plt.plot(np.array(cum_explained_variance_ratios))
+    plt.xlabel('# Principal Components')
+    plt.ylabel('% Variance Explained')
+    plt.grid()
+    plt.show()
+    
+    return n_pca
 
 def ohe_data(train_data, test_data, factor_cols=['zip','district']):
     '''
