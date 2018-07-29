@@ -14,7 +14,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
-# In[1]:
+# In[ ]:
 
 
 # import necessary libraries
@@ -39,10 +39,10 @@ import util
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+get_ipython().magic('matplotlib inline')
 
 
-# In[2]:
+# In[ ]:
 
 
 # Get train-test split
@@ -76,7 +76,7 @@ train_data.head()
 # * offers_per_student
 # * pct_test_takers
 
-# In[3]:
+# In[ ]:
 
 
 # To generate this list again:
@@ -129,7 +129,7 @@ perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
 # 
 # We will now run KNN prediction on the dataset, with the default K value (=5).
 
-# In[4]:
+# In[ ]:
 
 
 scaler = MinMaxScaler().fit(perf_train_data_nonull)
@@ -145,7 +145,7 @@ util.print_cv_results(cv_scores)
 
 # We get accuracy of 83% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[5]:
+# In[ ]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -167,7 +167,7 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[6]:
+# In[ ]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -177,7 +177,7 @@ selected_features = pipeline.steps[1][1].get_support()
 perf_train_data_nonull.columns[selected_features]
 
 
-# In[7]:
+# In[ ]:
 
 
 perf_train_data_nonull_sel_cols = ['student_attendance_rate', 'percent_of_students_chronically_absent',
@@ -204,10 +204,10 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[8]:
+# In[ ]:
 
 
-cum_explained_variance_ratios = []
+cum_explained_variance_ratios = [0]
 for n in range(1, 15):
     pipeline = make_pipeline(StandardScaler(), 
                             PCA(n_components=n, random_state=207))
@@ -225,7 +225,7 @@ plt.show()
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[16]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 

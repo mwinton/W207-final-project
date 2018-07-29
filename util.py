@@ -66,8 +66,8 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
         factor_col_ids.append(idx)
     factor_col_ids = np.array(factor_col_ids)
 
-    # perform one hot encoding
-    ohe_enc = OneHotEncoder(categorical_features=factor_col_ids, handle_unknown='ignore')
+    # perform one hot encoding; return full matrix (not sparse) for compatibility with PCA
+    ohe_enc = OneHotEncoder(categorical_features=factor_col_ids, sparse=False, handle_unknown='ignore')
     train_data_ohe = ohe_enc.fit_transform(train_data)
     test_data_ohe = ohe_enc.transform(test_data)
     print('Train data initial shape:',train_data.shape)
