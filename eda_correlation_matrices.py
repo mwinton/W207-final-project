@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[12]:
+# In[1]:
 
 
 # import necessary libraries
@@ -34,10 +34,10 @@ Xy_train = pd.concat([train_data, train_labels], axis=1)
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[29]:
+# In[15]:
 
 
-get_ipython().magic('matplotlib inline')
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # choose key features for correlation matrix
 corr_features = ['grade_7_enrollment',
@@ -66,11 +66,14 @@ corr_features = ['grade_7_enrollment',
 
 # calculate correlation matrix
 corr_matrix = Xy_train[corr_features].corr(method='pearson')
+mask = np.zeros_like(corr_matrix)
+mask[np.triu_indices_from(mask)] = True
 
 # plot heatmap and also save to disk
 plt.rcParams['figure.figsize'] = [12, 8]
-sns.heatmap(corr_matrix, annot=False, fmt="g", cmap='viridis',
-            xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns)
+sns.heatmap(corr_matrix, annot=False, fmt="g",
+            xticklabels=corr_matrix.columns, yticklabels=corr_matrix.columns,
+           center=0, linewidths=0.5, cmap="coolwarm", mask=mask)
 plt.savefig('plots/corr_matrix_key_features.png', bbox_inches='tight')
 
 
@@ -80,7 +83,7 @@ plt.savefig('plots/corr_matrix_key_features.png', bbox_inches='tight')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[30]:
+# In[17]:
 
 
 # choose key features for correlation matrix
