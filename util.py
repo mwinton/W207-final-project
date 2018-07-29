@@ -77,7 +77,7 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
     
     return train_data_ohe, test_data_ohe
     
-def read_data(data_file='data_merged/combined_data_2018-07-27.csv'):
+def read_data(data_file='data_merged/combined_data_2018-07-28.csv'):
     merged_df = pd.read_csv(data_file)
     
     # these columns cannot/should not be imputed
