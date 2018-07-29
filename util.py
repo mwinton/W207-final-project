@@ -50,7 +50,7 @@ our_train_test_split = partial(train_test_split,
                                test_size=TEST_SIZE,
                                random_state=RANDOM_STATE)
 
-def read_data(data_file='data_merged/combined_data_2018-07-18.csv'):
+def read_data(data_file='data_merged/combined_data_2018-07-27.csv'):
     merged_df = pd.read_csv(data_file)
     X = merged_df.loc[:, ~merged_df.columns.isin(['high_registrations'])]
     y = merged_df.loc[:, merged_df.columns.isin(['high_registrations'])]
