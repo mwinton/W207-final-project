@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[1]:
+# In[29]:
 
 
 # import necessary libraries
@@ -34,7 +34,7 @@ Xy_train = pd.concat([train_data, train_labels], axis=1)
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[26]:
+# In[32]:
 
 
 get_ipython().run_line_magic('matplotlib', 'inline')
@@ -95,7 +95,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[27]:
+# In[31]:
 
 
 # choose key features for correlation matrix
@@ -138,3 +138,47 @@ draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 # The last row shows where we need to focus, based on demographics:
 # * Schools with high economic need index
 # * Schools with high percentage of blacks or Hispanics
+
+# ### Outlier Analysis
+# 
+# Let us look at the distribution of test taker percentage across NYC schools.
+
+# In[33]:
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.boxplot(x=train_data['pct_test_takers'])
+plt.show()
+
+
+# There are quite a few outliers there.  Let us look at them.
+
+# In[34]:
+
+
+display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_takers', ascending=False))
+
+
+# ### NYC "Gifted & Talented" Program
+# 
+# We tried to analyze why these schools have such high enrollments.  When we did some research on the Internet, we found that New York actually has a "Gifted & Talented" Test that kids can take.  High-performers can go into "G&T Schools".  It is these schools that are the outliers above.
+# 
+# * The Anderson School: A "Gifted and Talented" school: "has an advanced math program, with fast-paced instruction, which encourages students to discover new approaches to math problems". [Source](https://www.testingmom.com/tests/gifted-talented-nyc/schools/).
+# 
+# * Mamie Fay: Has a "gifted and talented" [program](https://insideschools.org/school/30Q122).
+# 
+# * Janice Marie Knight: This school seems to be a clear outlier: it has 93% black student population, yet it has 97% SHSAT registration.  Turns out it has a gifted program called [SOAR](https://insideschools.org/school/18K235).
+# 
+# * Tag Young Scholars: The school explicitly identifies itself for [excellence](http://tagscholars.com/index.php/mission-statement/).
+# 
+# * G&T Citywide (30th Ave): The name says it all: "Gifted and Talented".
+# 
+# * Brooklyn School of Inquiry: [Gifted](https://insideschools.org/school/20K686) school.
+# 
+# * Booker T. Washington: Very [selective in admissions](https://insideschools.org/school/03M054).
+# 
+# * Christa Mcauliffe: Strong [special education program](https://insideschools.org/school/20K187).
+# 
+# * New York City Lab Middle School: [Very selective](https://insideschools.org/school/02M312).
