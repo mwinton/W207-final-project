@@ -4,3 +4,4 @@ venv/
 __pycache__/
 .DS_Store
 .gitattributes
+jupyter_notebook_config.py
