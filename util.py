@@ -82,7 +82,7 @@ def get_num_pcas (train_data, var_explained=0.9):
     plt.ylabel('% Variance Explained')
     plt.grid()
     plt.show()
-    
+
     return n_pca
 
 def ohe_data(train_data, test_data, factor_cols=['zip','district']):
@@ -90,7 +90,7 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
         inputs: train_data, test_data (pandas dataframes)
         returns: train_data_ohe, test_data_ohe (both sparse matrices)
     '''
-    
+
     # get indices for specified columns
     factor_col_ids = []
     for f in factor_cols:
@@ -106,10 +106,12 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
     print('Test  data initial shape:',test_data.shape)
     print('Train data new shape:',train_data_ohe.shape)
     print('Test  data new shape:',test_data_ohe.shape)
-    
+
     return train_data_ohe, test_data_ohe
     
-def read_data(data_file='data_merged/combined_data_2018-07-27.csv', do_imputation=False):
+
+def read_data(data_file='data_merged/combined_data_2018-07-29.csv', do_imputation=False):
+
     merged_df = pd.read_csv(data_file)
 
     if do_imputation:
@@ -140,15 +142,15 @@ def read_data(data_file='data_merged/combined_data_2018-07-27.csv', do_imputatio
     X = imputed_df.loc[:, ~imputed_df.columns.isin(['high_registrations'])]
     y = imputed_df.loc[:, imputed_df.columns.isin(['high_registrations'])]
     train_data, test_data, train_labels, test_labels = our_train_test_split(X, y, stratify=y)
-    
+
     # convert y values into 1D array, as expected by sklearn classifiers
     train_labels = train_labels.values.ravel()
     test_labels = test_labels.values.ravel()
-    
+
     # confirm stratification
     print('Train: %d observations (positive class fraction: %.3f)' %
           (len(train_labels), np.sum(train_labels==1) / len(train_labels)))
-    print('Test : %d observations (positive class fraction: %.3f)' % 
+    print('Test : %d observations (positive class fraction: %.3f)' %
           (len(test_labels), np.sum(test_labels==1) / len(test_labels)))
 
     return train_data, test_data, train_labels, test_labels
