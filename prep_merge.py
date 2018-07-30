@@ -109,11 +109,6 @@ merged_df.isnull().sum(axis=1)[merged_df.isnull().sum(axis=1) > 0]    .sort_valu
 
 # At the moment we don't see any of these as being offending enough to be removed, especially since we have already preserved some info from the 'school_income_estimate' feature.
 
-# ## Add giftedness and selectiveness information
-# 
-# 
-# combined_data = merged_df.join(explorer_df, how="inner")
-
 # ## Save a dated file
 # 
 # To allow updates to the merged dataframe without disrupting work on models downstream until they are ready, we save a dated merged filename.
@@ -164,7 +159,7 @@ print("Percent null: {0:.3f}%".format(100*no_class_size_df.isnull().sum().sum()/
 no_class_size_df.isnull().sum()[no_class_size_df.isnull().sum() > 0]    .sort_values(ascending=False)
 
 
-# There characteristics are similar to our primary dataset, so we should feel comfortable using it if we do not need the class size data in our models.  Note that several of the columns with nulls in our primary dataset w
+# There characteristics are similar to our primary dataset, so we should feel comfortable using it if we do not need the class size data in our models.  Note that several of the columns with nulls in our primary merged dataset originally came from the class size data.  As a result, aside from `school_income_estimate`, our columns look quite good with respect to nulls.
 
 # In[27]:
 

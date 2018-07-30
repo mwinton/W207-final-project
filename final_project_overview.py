@@ -47,6 +47,10 @@
 # 
 # This [2013-2018 Demographic Snapshot of NYC Schools](https://data.cityofnewyork.us/Education/2013-2018-Demographic-Snapshot-School/s52a-8aq6) was downloaded directly from the NYC Open Data project. It contains grade-level enrollments for each school from the NY Department of Education.
 
+# ### 5. Gifted and Talented Schools Lists
+# 
+# New York City also has a set of test-in Gifted & Talented (G&T) programs.  Some of city-wide, and others give preference to students within a particular district.  Data on which schools have these programs was scraped from [insideschools.org](http://insideschools.org).
+
 # ## Preliminary EDA and Data Cleaning
 # 
 # Each of these datasets required varying degrees of cleaning before they could be joined together.  The EDA and data cleaning was done in separate notebooks, and results saved as CSV files.
@@ -54,6 +58,7 @@
 # 1. [School Explorer EDA Notebook](prep_explorer.ipynb)
 # 2. [SHSAT Results & Demographic Snapshot Notebook](prep_shsat_results.ipynb)
 # 3. [Class Size Notebook](prep_class_sizes.ipynb)
+# 4. [Gifted & Talented Web Scraping Script](sel_scrape.py)
 # 
 # Next we load the resulting CSV files in a [Merge Notebook](prep_merge.ipynb) to join our cleaned data into one master dataset, resolve issues with missing values, and save as [combined_data.csv](data_merged/combined_data.csv).
 
@@ -61,7 +66,7 @@
 # 
 # **TODO: complete this section**
 
-# In[4]:
+# In[ ]:
 
 
 from IPython.display import Image
@@ -70,7 +75,7 @@ Image(filename='plots/corr_matrix_key_features.png')
 
 # As discussed in our [EDA notebook](eda_correlation_matrics.ipynb), from this correlation matrix, we see that in general, feature related to test scores or academic proficiency are positively correlated with a high SHSAT registration rate.  Two features in our dataset are most negatively correlated with registration rate: the percentage of students which are chronically absent, as well as the "community school" indicator.  The former is very much intuitive, but the latter fact may be an noteworthy learning from this analysis.  It's also somewhat interesting to see that a _higher_ student-to-teacher ratio correlates positively with registration rate.
 
-# In[6]:
+# In[ ]:
 
 
 from IPython.display import Image
@@ -115,7 +120,7 @@ Image(filename='plots/corr_matrix_demographics.png')
 # 
 # We first generated a list of the top 20 highest scoring false negatives from **TBD: which models were included**, applied this prioritization algorithm to each, and then took an ensemble vote from those lists.  The resulting schools are the ones that we recommend PASSNYC engage with for the highest anticipated ROI:
 
-# In[1]:
+# In[ ]:
 
 
 # display table of selected schools with the attributes used in prioritization
