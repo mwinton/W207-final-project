@@ -7,7 +7,7 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[ ]:
+# In[1]:
 
 
 # import necessary libraries
@@ -34,7 +34,7 @@ get_ipython().magic('matplotlib inline')
 # 
 # Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
 
-# In[ ]:
+# In[2]:
 
 
 train_data, test_data, train_labels, test_labels = util.read_data(do_imputation=True)
@@ -44,7 +44,7 @@ print(train_labels.shape)
 
 # > **KEY OBSERVATION**: a hypothetical model that is hard-coded to predict a `negative` result every time would be ~77% accurate.  So, we should not accept any machine-learned model with a lower accuracy than that.  This also suggests that F1 score is a better metric to assess our work since it incorporates both precision and recall.
 
-# In[ ]:
+# In[3]:
 
 
 train_data.info()
@@ -55,7 +55,7 @@ train_data.head(10)
 
 # ## Create a function to estimate MLP models and report results
 
-# In[ ]:
+# In[4]:
 
 
 def estimate_mlp(train_data, train_labels, n_pca=None,
@@ -94,7 +94,7 @@ def estimate_mlp(train_data, train_labels, n_pca=None,
 # ## Train and fit a "naive" model
 # For the first model, we'll use all features except SHSAT-related features because they are too correlated with the way we calculated the label.  We'll also drop `school_income_estimate` because it's missing for ~2/3 of the schools.
 
-# In[ ]:
+# In[5]:
 
 
 drop_cols = ['dbn',
@@ -116,7 +116,7 @@ train_data_naive.head()
 # ## One Hot Encode the categorical explanatory variables
 # Columns such as zip code and school district ID, which are integeres should not be fed into an ML model as integers.  Instead, we would need to treat them as factors and perform one-hot encoding.  
 
-# In[ ]:
+# In[6]:
 
 
 train_data_naive_ohe, test_data_naive_ohe = util.ohe_data(train_data_naive, test_data_naive)
@@ -125,7 +125,7 @@ train_data_naive_ohe, test_data_naive_ohe = util.ohe_data(train_data_naive, test
 # ## Estimate the "naive" multilayer perceptron model
 # This first "naive" model uses all except for the SHSAT-related features, as described above.  We create a pipeline that will be used for k-fold cross-validation.  First, we scale the features, then estimate a multilayer perceptron neural network.
 
-# In[ ]:
+# In[7]:
 
 
 # discard return vals; only print results
@@ -135,7 +135,7 @@ train_data_naive_ohe, test_data_naive_ohe = util.ohe_data(train_data_naive, test
 # ## Train a "naive" model without zip code or school district
 # Next, we will remove the zip and district features and compare accuracy to the model that included one hot-encoded versions of these factors.
 
-# In[ ]:
+# In[8]:
 
 
 drop_cols = ['dbn',
@@ -160,7 +160,7 @@ train_data_naive_nozip.head()
 # ## Estimate the "naive" multilayer perceptron model (without zip or district)
 # 
 
-# In[ ]:
+# In[9]:
 
 
 # discard return vals; only print results
@@ -175,7 +175,7 @@ train_data_naive_nozip.head()
 # ### Preprocess new X_train and X_test datasets
 # We will remove all explicitly demographic columns, as well as economic factors and zip code, which are likely highly correlated with demographics.
 
-# In[ ]:
+# In[10]:
 
 
 # drop SHSAT-related columns
@@ -210,7 +210,7 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 # ## Estimate the "race blind" multilayer perceptron model
 # 
 
-# In[ ]:
+# In[11]:
 
 
 # discard return vals; only print results
@@ -222,14 +222,14 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 # ## Experiment with dimensionality reduction via PCA
 # Since manual feature selection performed poorly, resulting in a confidence interval of F1 spanning from 0 to 1 in both cases, it doesn't seem to be a promising approach.  Next, we experiment with Principal Component Analysis for dimensionality reduction, starting with the "naive" set of columns.
 
-# In[ ]:
+# In[12]:
 
 
 # Determine the number of principal components to achieve 90% explained variance
 n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
 
 
-# In[ ]:
+# In[13]:
 
 
 print('Using %d principal components' % (n_pca))
@@ -241,7 +241,7 @@ print('Using %d principal components' % (n_pca))
 # ## Use grid search to identify best set of hidden layer parameters
 # Since the usage of PCA seemed to improve our F1 score (and tighten its confidence interval), we will proceed to try to optimize the hidden layer parameters while using PCA.
 
-# In[ ]:
+# In[14]:
 
 
 # Running grid search for different combinations of neural network parameters is slow.
@@ -254,8 +254,8 @@ except FileNotFoundError:
 
     # numbers of hidden nodes = these multipliers * # features
     n_features = train_data_naive_ohe.shape[1]
-    fraction = [0.25, 0.5]
-#     fraction = [0.25, 0.5, 1.0, 1.5]
+#     fraction = [0.25, 0.5]
+    fraction = [0.25, 0.5, 1.0, 1.5]
     n_layer_features = (int(f * n_features) for f in fraction)
     n_nodes = list(n_layer_features)
 
