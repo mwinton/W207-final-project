@@ -118,6 +118,7 @@ se_2016_derived = se_2016_trimmed.copy()
 # of a school community that may be worth considering, so we note
 # the presence or absence of those values.
 se_2016_derived['sie_provided'] = -se_2016_derived['School Income Estimate'].isna()
+se_2016_derived['sie_provided'] = se_2016_derived['sie_provided'].astype(int)
 
 # While zip codes might be too granular on their own to signal
 # commonalities between schools, we see if grouping by borough
@@ -129,11 +130,11 @@ manhattan_zips = [10026, 10027, 10030, 10037, 10039, 10001, 10011, 10018, 10019,
 queens_zips = [11361, 11362, 11363, 11364, 11354, 11355, 11356, 11357, 11358, 11359, 11360, 11365, 11366, 11367, 11412, 11423, 11432, 11433, 11434, 11435, 11436, 11101, 11102, 11103, 11104, 11105, 11106, 11374, 11375, 11379, 11385, 11691, 11692, 11693, 11694, 11695, 11697, 11004, 11005, 11411, 11413, 11422, 11426, 11427, 11428, 11429, 11414, 11415, 11416, 11417, 11418, 11419, 11420, 11421, 11368, 11369, 11370, 11372, 11373, 11377, 11378]
 staten_zips = [10302, 10303, 10310, 10306, 10307, 10308, 10309, 10312,10301, 10304, 10305,10314]
 
-se_2016_derived['in_bronx'] = se_2016_derived['Zip'].apply((lambda zip: zip in bronx_zips))
-se_2016_derived['in_brooklyn'] = se_2016_derived['Zip'].apply((lambda zip: zip in brooklyn_zips))
-se_2016_derived['in_manhattan'] = se_2016_derived['Zip'].apply((lambda zip: zip in manhattan_zips))
-se_2016_derived['in_queens'] = se_2016_derived['Zip'].apply((lambda zip: zip in queens_zips))
-se_2016_derived['in_staten'] = se_2016_derived['Zip'].apply((lambda zip: zip in staten_zips))
+se_2016_derived['in_bronx'] = se_2016_derived['Zip'].apply((lambda zip: int(zip in bronx_zips)))
+se_2016_derived['in_brooklyn'] = se_2016_derived['Zip'].apply((lambda zip: int(zip in brooklyn_zips)))
+se_2016_derived['in_manhattan'] = se_2016_derived['Zip'].apply((lambda zip: int(zip in manhattan_zips)))
+se_2016_derived['in_queens'] = se_2016_derived['Zip'].apply((lambda zip: int(zip in queens_zips)))
+se_2016_derived['in_staten'] = se_2016_derived['Zip'].apply((lambda zip: int(zip in staten_zips)))
 
 print("Shape after derived columns:",se_2016_derived.shape)
 
