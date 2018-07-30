@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[14]:
+# In[1]:
 
 
 # import necessary libraries
@@ -37,7 +37,7 @@ Xy_train = pd.concat([train_data, train_labels_df], axis=1)
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[15]:
+# In[2]:
 
 
 get_ipython().magic('matplotlib inline')
@@ -98,7 +98,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[16]:
+# In[3]:
 
 
 # choose key features for correlation matrix
@@ -146,7 +146,7 @@ draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 # 
 # Let us look at the distribution of test taker percentage across NYC schools.
 
-# In[19]:
+# In[4]:
 
 
 import seaborn as sns
@@ -159,7 +159,7 @@ plt.show()
 
 # There are quite a few outliers there.  Let us look at them.
 
-# In[20]:
+# In[5]:
 
 
 display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_takers', ascending=False))
@@ -186,3 +186,29 @@ display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_ta
 # * Christa Mcauliffe: Strong [special education program](https://insideschools.org/school/20K187).
 # 
 # * New York City Lab Middle School: [Very selective](https://insideschools.org/school/02M312).
+
+# ## Verifying correlation between "equivalent" percent and rating columns
+# The definitions of these "percent" and "rating" columns on Kaggle are identical, leading us to question whether these were duplicate columns, so we plotted them against each other.  It turns out we cannot consider them to be duplicates because, for example an 85% on most plots could be a 2, 3, or 4 rating.
+
+# In[14]:
+
+
+plt.scatter(train_data['rigorous_instruction_percent'], train_data['rigorous_instruction_rating'])
+plt.title('rigorous_instruction')
+plt.show()
+plt.scatter(train_data['collaborative_teachers_percent'], train_data['collaborative_teachers_rating'])
+plt.title('collaborative_teachers')
+plt.show()
+plt.scatter(train_data['supportive_environment_percent'], train_data['supportive_environment_rating'])
+plt.title('supportive_environment')
+plt.show()
+plt.scatter(train_data['effective_school_leadership_percent'], train_data['effective_school_leadership_rating'])
+plt.title('effective_school_leadership')
+plt.show()
+plt.scatter(train_data['strong_family_community_ties_percent'], train_data['strong_family_community_ties_rating'])
+plt.title('strong_family_community_ties')
+plt.show()
+plt.scatter(train_data['trust_percent'], train_data['trust_rating'])
+plt.title('trust')
+plt.show()
+
