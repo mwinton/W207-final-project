@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[14]:
+# In[1]:
 
 
 # import necessary libraries
@@ -37,15 +37,17 @@ Xy_train = pd.concat([train_data, train_labels_df], axis=1)
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[15]:
+# In[3]:
 
 
-get_ipython().magic('matplotlib inline')
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # choose key features for correlation matrix
 corr_features = ['grade_7_enrollment',
                  'community_school', 
                  'student_attendance_rate',
+                 'gifted',
+                 'selective',
                  'percent_of_students_chronically_absent',
                  'rigorous_instruction_percent', 
                  'collaborative_teachers_percent', 
@@ -98,7 +100,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[16]:
+# In[4]:
 
 
 # choose key features for correlation matrix
@@ -108,7 +110,9 @@ demog_features =  ['economic_need_index',
                    'percent_black', 
                    'percent_hispanic', 
                    'percent_black__hispanic',
-                   'percent_white', 
+                   'percent_white',
+                   'gifted',
+                   'selective',
                    'grade_7_ela_4s_black_or_african_american',
                    'grade_7_ela_4s_hispanic_or_latino',
                    'grade_7_ela_4s_multiracial',
@@ -146,7 +150,7 @@ draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 # 
 # Let us look at the distribution of test taker percentage across NYC schools.
 
-# In[19]:
+# In[ ]:
 
 
 import seaborn as sns
@@ -159,7 +163,7 @@ plt.show()
 
 # There are quite a few outliers there.  Let us look at them.
 
-# In[20]:
+# In[ ]:
 
 
 display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_takers', ascending=False))
