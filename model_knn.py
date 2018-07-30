@@ -63,6 +63,7 @@ train_data.head()
 
 # We will ignore some categorical variables and variables that are highly correlated with outcome variable.
 
+
 # In[20]:
 
 
@@ -104,6 +105,7 @@ util.print_cv_results(cv_scores)
 
 
 # We get accuracy of 82% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
+
 
 # In[22]:
 
