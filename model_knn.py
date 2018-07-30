@@ -14,7 +14,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
-# In[ ]:
+# In[1]:
 
 
 # import necessary libraries
@@ -42,7 +42,7 @@ pd.set_option('display.max_rows', 200)
 get_ipython().magic('matplotlib inline')
 
 
-# In[ ]:
+# In[2]:
 
 
 # Get train-test split
@@ -76,7 +76,7 @@ train_data.head()
 # * offers_per_student
 # * pct_test_takers
 
-# In[ ]:
+# In[3]:
 
 
 # To generate this list again:
@@ -129,12 +129,12 @@ perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
 # 
 # We will now run KNN prediction on the dataset, with the default K value (=5).
 
-# In[ ]:
+# In[5]:
 
 
 scaler = MinMaxScaler().fit(perf_train_data_nonull)
 rescaledX = scaler.transform(perf_train_data_nonull)
-y = train_labels.values.ravel()
+y = train_labels
 clf = KNeighborsClassifier()
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
@@ -143,9 +143,10 @@ cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f
 util.print_cv_results(cv_scores)
 
 
+# **TODO: update this. Text doesn't match numbers now.**
 # We get accuracy of 83% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[ ]:
+# In[6]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -161,13 +162,14 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
        estimator.best_score_))
 
 
+# **TODO: update this. Text doesn't match numbers now.**
 # The best F1 score is 0.62 at $k=3$.
 
 # ### KNN with select features
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[ ]:
+# In[7]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -177,7 +179,7 @@ selected_features = pipeline.steps[1][1].get_support()
 perf_train_data_nonull.columns[selected_features]
 
 
-# In[ ]:
+# In[9]:
 
 
 perf_train_data_nonull_sel_cols = ['student_attendance_rate', 'percent_of_students_chronically_absent',
@@ -187,7 +189,7 @@ perf_train_data_nonull_sel_cols = ['student_attendance_rate', 'percent_of_studen
 perf_train_data_nonull_sel = perf_train_data_nonull[perf_train_data_nonull_sel_cols]
 scaler = MinMaxScaler().fit(perf_train_data_nonull_sel)
 rescaledX = scaler.transform(perf_train_data_nonull_sel)
-y = train_labels.values.ravel()
+y = train_labels
 clf = KNeighborsClassifier(n_neighbors=3)
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
@@ -196,6 +198,7 @@ cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f
 util.print_cv_results(cv_scores)
 
 
+# **TODO: update this. Text doesn't match numbers now.**
 # F1 score falls from 0.62 to 0.58.  We can ignore this set and use the original set instead.
 
 # ### KNN with reduced dimensions
@@ -204,28 +207,18 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[ ]:
+# In[10]:
 
 
-cum_explained_variance_ratios = [0]
-for n in range(1, 15):
-    pipeline = make_pipeline(StandardScaler(), 
-                            PCA(n_components=n, random_state=207))
-    pipeline.fit_transform(perf_train_data_nonull)
-    pca = pipeline.steps[1][1]
-    cum_explained_variance_ratios.append(np.sum(pca.explained_variance_ratio_))
-
-import seaborn as sns
-sns.set()
-plt.plot(np.array(cum_explained_variance_ratios))
-plt.show()
+# generate plot of variance explained vs # principale components
+util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 
 
 # We can see that the first 3 components already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[ ]:
+# In[11]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -246,4 +239,5 @@ print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" %
        estimator.best_score_))
 
 
+# **TODO: update this. Text doesn't match numbers now.**
 # PCA with 3 components, followed by KNN with 7 neighbors, gives us F1-score that's up by 0.03: earlier, it was 0.62, now it's 0.65.  But we also lose a lot of interpretability; it may not be worth it to go down this path.

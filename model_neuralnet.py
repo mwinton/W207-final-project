@@ -229,7 +229,7 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
 
 
-# In[ ]:
+# In[9]:
 
 
 print('Using %d principal components' % (n_pca))
