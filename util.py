@@ -109,29 +109,32 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
     
     return train_data_ohe, test_data_ohe
     
-def read_data(data_file='data_merged/combined_data_2018-07-28.csv'):
+def read_data(data_file='data_merged/combined_data_2018-07-27.csv', do_imputation=False):
     merged_df = pd.read_csv(data_file)
-    
-    # these columns cannot/should not be imputed
-    # notably, don't impute for `school_income_estimate` because too many missing values
-    non_impute_cols = ['dbn', 
-                       'school_name',
-                       'district',
-                       'zip',
-                       'school_income_estimate']
-    
-    # temporarily split out the non-numeric cols into a separate dataframe
-    tmp_non_numeric_df = merged_df[non_impute_cols]
-    tmp_numeric_df = merged_df.drop(non_impute_cols, axis=1)
-    
-    # do imputation of missing values to column mean
-    imp = Imputer(missing_values=np.nan, strategy='mean', axis=0)
-    tmp_imputed_df = pd.DataFrame(imp.fit_transform(tmp_numeric_df))
-    tmp_imputed_df.columns = tmp_numeric_df.columns
-    tmp_imputed_df.index = tmp_numeric_df.index
-    
-    # reassemble into a single dataframe
-    imputed_df = pd.concat([tmp_non_numeric_df, tmp_imputed_df], axis=1)
+
+    if do_imputation:
+        # these columns cannot/should not be imputed
+        # notably, don't impute for `school_income_estimate` because too many missing values
+        non_impute_cols = ['dbn',
+                           'school_name',
+                           'district',
+                           'zip',
+                           'school_income_estimate']
+
+        # temporarily split out the non-numeric cols into a separate dataframe
+        tmp_non_numeric_df = merged_df[non_impute_cols]
+        tmp_numeric_df = merged_df.drop(non_impute_cols, axis=1)
+
+        # do imputation of missing values to column mean
+        imp = Imputer(missing_values=np.nan, strategy='mean', axis=0)
+        tmp_imputed_df = pd.DataFrame(imp.fit_transform(tmp_numeric_df))
+        tmp_imputed_df.columns = tmp_numeric_df.columns
+        tmp_imputed_df.index = tmp_numeric_df.index
+
+        # reassemble into a single dataframe
+        imputed_df = pd.concat([tmp_non_numeric_df, tmp_imputed_df], axis=1)
+    else:
+        imputed_df = merged_df
 
     # split into features (X) and labels (y)
     X = imputed_df.loc[:, ~imputed_df.columns.isin(['high_registrations'])]
