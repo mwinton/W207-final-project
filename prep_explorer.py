@@ -16,7 +16,7 @@
 # * Academic achievement information in the form of per-grade and per-economic/demographic breakdowns of number of Math/ELA students who receive scores of '4' (highest score)
 # 
 
-# In[ ]:
+# In[12]:
 
 
 # import necessary libraries
@@ -29,10 +29,10 @@ import pandas as pd
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+get_ipython().magic('matplotlib inline')
 
 
-# In[ ]:
+# In[13]:
 
 
 # load dataset from CSV
@@ -40,7 +40,7 @@ raw_se_2016 = pd.read_csv('data_raw/2016_school_explorer.csv')
 raw_se_2016.info()
 
 
-# In[ ]:
+# In[14]:
 
 
 raw_se_2016.head()
@@ -49,7 +49,7 @@ raw_se_2016.head()
 # ## Trimming
 # There is considerably more here than we need, starting with the fact that the dataset includes primary schools that only go up to 5th grade.  We trim the dataset to only those schools that have a 7th grade.
 
-# In[ ]:
+# In[15]:
 
 
 se_2016_trimmed = raw_se_2016[raw_se_2016['Grades'].str.contains('07')]
@@ -58,18 +58,20 @@ se_2016_trimmed.info()
 
 # This cuts the number of entries roughly in half, but there are also many more columns than we need.  We want to keep the information that describes the school's location, practices and demographics, and the academic descriptors of the 7th grade (these students will take the SHSAT exam in the fall of their 8th grade).
 
-# In[ ]:
+# In[16]:
 
 
-features_to_keep = ['Location Code', 'School Name', 'District','Zip', 'Community School?', 'Economic Need Index', 'School Income Estimate',
+features_to_keep = ['Location Code', 'School Name', 'District','Zip', 'Community School?',
+                    'Economic Need Index', 'School Income Estimate',
                     'Percent ELL', 'Percent Asian', 'Percent Black', 'Percent Hispanic',
                     'Percent Black / Hispanic', 'Percent White', 'Student Attendance Rate',
-                    'Percent of Students Chronically Absent', 'Rigorous Instruction %',
-                    'Collaborative Teachers %',
-                    'Supportive Environment %',
-                    'Effective School Leadership %',
-                    'Strong Family-Community Ties %',
-                    'Trust %', 
+                    'Percent of Students Chronically Absent',
+                    'Rigorous Instruction %','Rigorous Instruction Rating',
+                    'Collaborative Teachers %','Collaborative Teachers Rating',
+                    'Supportive Environment %','Supportive Environment Rating',
+                    'Effective School Leadership %','Effective School Leadership Rating',
+                    'Strong Family-Community Ties %','Strong Family-Community Ties Rating',
+                    'Trust %', 'Trust Rating', 
                     'Student Achievement Rating', 'Average ELA Proficiency',
                     'Average Math Proficiency', 
                     'Grade 7 ELA - All Students Tested',
@@ -96,7 +98,7 @@ se_2016_trimmed = se_2016_trimmed[features_to_keep]
 se_2016_trimmed.info()
 
 
-# In[ ]:
+# In[17]:
 
 
 se_2016_trimmed.head()
@@ -105,7 +107,7 @@ se_2016_trimmed.head()
 # ## Derived Features
 # We will now derive some features to group some data together or preserve some information from features we'll otherwise need to discard.
 
-# In[ ]:
+# In[18]:
 
 
 print("Shape before derived columns:",se_2016_trimmed.shape)
@@ -148,7 +150,7 @@ print("Shape after derived columns:",se_2016_derived.shape)
 # * Drop the rating columns for which we have corresponding percent columns (there are more missing values in the rating columns)
 # * Converting the Yes/No community schools string to binary
 
-# In[ ]:
+# In[19]:
 
 
 # Apply changes to new dataframe
@@ -156,7 +158,7 @@ se_2016_renamed = se_2016_derived.copy()
 se_2016_renamed.rename(columns={"Location Code":"DBN"}, inplace=True)
 
 
-# In[ ]:
+# In[20]:
 
 
 # Utility functions 
@@ -187,12 +189,12 @@ money_columns = [
 
 # Convert ratings to numeric
 rating_columns = [
-#     'Rigorous Instruction Rating',
-#     'Collaborative Teachers Rating',
-#     'Supportive Environment Rating',
-#     'Effective School Leadership Rating',
-#     'Strong Family-Community Ties Rating',
-#     'Trust Rating',
+    'Rigorous Instruction Rating',
+    'Collaborative Teachers Rating',
+    'Supportive Environment Rating',
+    'Effective School Leadership Rating',
+    'Strong Family-Community Ties Rating',
+    'Trust Rating',
     'Student Achievement Rating'
 ]
 
@@ -214,7 +216,7 @@ se_2016_renamed.columns = [util.sanitize_column_names(c) for c in se_2016_rename
 se_2016_renamed.head()
 
 
-# In[ ]:
+# In[21]:
 
 
 plt.hist(se_2016_renamed.loc[se_2016_renamed['average_ela_proficiency']        .notnull(),'average_ela_proficiency'], bins=20)
@@ -223,7 +225,7 @@ plt.hist(se_2016_renamed.loc[se_2016_renamed['average_math_proficiency']        
 plt.show()
 
 
-# In[ ]:
+# In[22]:
 
 
 # check final shape (rows = number of schools)
@@ -231,7 +233,7 @@ plt.show()
 se_2016_renamed.shape
 
 
-# In[ ]:
+# In[23]:
 
 
 # save the cleaned dataset to CSV

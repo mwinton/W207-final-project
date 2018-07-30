@@ -66,7 +66,7 @@
 # 
 # **TODO: complete this section**
 
-# In[ ]:
+# In[1]:
 
 
 from IPython.display import Image
@@ -75,14 +75,21 @@ Image(filename='plots/corr_matrix_key_features.png')
 
 # As discussed in our [EDA notebook](eda_correlation_matrics.ipynb), from this correlation matrix, we see that in general, feature related to test scores or academic proficiency are positively correlated with a high SHSAT registration rate.  Two features in our dataset are most negatively correlated with registration rate: the percentage of students which are chronically absent, as well as the "community school" indicator.  The former is very much intuitive, but the latter fact may be an noteworthy learning from this analysis.  It's also somewhat interesting to see that a _higher_ student-to-teacher ratio correlates positively with registration rate.
 
-# In[ ]:
+# In[2]:
 
 
-from IPython.display import Image
 Image(filename='plots/corr_matrix_demographics.png') 
 
 
 # Also as previously mentioned in our EDA notebook, we see that percent Asian and percent white correlate positively with high SHSAT registration rates, whereas percent black and Hispanic correlate negatively with the registration rate.  This is in agreement with the original problem statement that PASSNYC posed.  Additionally, schools with a higher economic need index correlate with lower registration rates.  However, even in light of this fact, it is particularly interesting to note that schools with a high proportion of economically disadvantage students scoring 4's on their ELA and Math exams tend to have higher registration rates, as well.
+
+# In[3]:
+
+
+Image(filename='plots/corr_matrix_boroughs.png')
+
+
+# As discussed in our EDA notebook, we saw minimal correlation between indicator variables for each of the 5 NYC boroughs with high SHSAT registration rates.
 
 # ## Model Building
 # 
