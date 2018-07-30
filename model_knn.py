@@ -14,6 +14,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
+
 # In[17]:
 
 
@@ -42,7 +43,9 @@ pd.set_option('display.max_rows', 200)
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
+
 # In[27]:
+
 
 
 # Get train-test split
@@ -57,6 +60,7 @@ train_data.head()
 # 
 # We will now select some features from the above dataset.
 # 
+
 # We will ignore some categorical variables and variables that are highly correlated with outcome variable.
 
 # In[20]:
@@ -123,6 +127,7 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
+
 # In[23]:
 
 
@@ -131,6 +136,7 @@ pipeline = make_pipeline(MinMaxScaler(),
 pipeline.fit_transform(perf_train_data_nonull, y)
 selected_features = pipeline.steps[1][1].get_support()
 perf_train_data_nonull.columns[selected_features]
+
 
 
 # In[24]:
@@ -168,6 +174,7 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
+
 # In[25]:
 
 
@@ -178,6 +185,7 @@ util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 # We can see that the first 3 components already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
+
 
 # In[26]:
 
