@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import util
 
+from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import cross_val_score, cross_validate
 from sklearn.neural_network import MLPClassifier
@@ -36,7 +37,7 @@ get_ipython().magic('matplotlib inline')
 # In[2]:
 
 
-train_data, test_data, train_labels, test_labels = util.read_data()
+train_data, test_data, train_labels, test_labels = util.read_data(do_imputation=True)
 print(train_data.shape)
 print(train_labels.shape)
 
@@ -57,16 +58,37 @@ train_data.head(10)
 # In[4]:
 
 
-def estimate_mlp(train_data, train_labels, k_folds=10, max_iter=1000):
-    # create a pipeline to run StandardScaler and MLP
-    n_features = train_data.shape[1]
-    pipe_clf = make_pipeline(StandardScaler(with_mean=False), 
-                       MLPClassifier(hidden_layer_sizes=(n_features,n_features,n_features), max_iter=max_iter))
+def estimate_mlp(train_data, train_labels, n_pca=None,
+                 hidden_layers=None, k_folds=5, max_iter=1000, print_results=True):
+
+    # if tuple describing hidden layer nodes isn't provided, set default
+    if not hidden_layers:
+        n_features = train_data.shape[1]
+        hidden_layers = (n_features,n_features,n_features)
+        
+    # build pipelines, with or without PCA as appropriate
+    if n_pca:
+        # create a pipeline to run StandardScaler and MLP
+        print('Estimating pipeline with PCA; hidden layers:',hidden_layers)
+        pipeline = make_pipeline(StandardScaler(with_mean=False), 
+                                 PCA(n_components=n_pca),
+                                 MLPClassifier(hidden_layer_sizes=hidden_layers, max_iter=max_iter))
+    else:
+        # create a pipeline to run StandardScaler and MLP
+        print('Estimating pipeline without PCA; hidden layers:',hidden_layers)
+        pipeline = make_pipeline(StandardScaler(with_mean=False), 
+                                 MLPClassifier(hidden_layer_sizes=hidden_layers, max_iter=max_iter))
 
     # Do k-fold cross-validation, collecting both "test" accuracy and F1 
     print('Running cross-validation, please be patient...')
-    cv_scores = cross_validate(pipe_clf, train_data, train_labels, cv=k_folds, scoring=['accuracy','f1'])
-    util.print_cv_results(cv_scores)
+    cv_scores = cross_validate(pipeline, train_data, train_labels, cv=k_folds, scoring=['accuracy','f1'])
+    if print_results:
+        util.print_cv_results(cv_scores)
+        
+    # extract and return accuracy, F1
+    cv_accuracy = cv_scores['test_accuracy']
+    cv_f1 = cv_scores['test_f1']
+    return (cv_accuracy.mean(), cv_accuracy.std(), cv_f1.mean(), cv_f1.std())
 
 
 # ## Train and fit a "naive" model
@@ -106,7 +128,8 @@ train_data_naive_ohe, test_data_naive_ohe = util.ohe_data(train_data_naive, test
 # In[7]:
 
 
-estimate_mlp(train_data_naive_ohe, train_labels, k_folds=10, max_iter=1000)
+# discard return vals; only print results
+(_,_,_,_) = estimate_mlp(train_data_naive_ohe, train_labels, k_folds=5, max_iter=1000)
 
 
 # ## Train a "naive" model without zip code or school district
@@ -140,7 +163,8 @@ train_data_naive_nozip.head()
 # In[9]:
 
 
-estimate_mlp(train_data_naive_nozip, train_labels, k_folds=10, max_iter=1000)
+# discard return vals; only print results
+(_,_,_,_) = estimate_mlp(train_data_naive_nozip, train_labels, k_folds=5, max_iter=1000)
 
 
 # > **KEY OBSERVATION**: while the accuracy is similar when we exclude zip code and school district, the F1 score is substantially less, with a 95% confidence interval that nearly spans the interval 0-1.  This suggests that it's important to keep these factors in the model. 
@@ -151,7 +175,7 @@ estimate_mlp(train_data_naive_nozip, train_labels, k_folds=10, max_iter=1000)
 # ### Preprocess new X_train and X_test datasets
 # We will remove all explicitly demographic columns, as well as economic factors and zip code, which are likely highly correlated with demographics.
 
-# In[11]:
+# In[10]:
 
 
 # drop SHSAT-related columns
@@ -186,16 +210,85 @@ train_data_race_blind_ohe, test_data_race_blind_ohe = util.ohe_data(train_data_n
 # ## Estimate the "race blind" multilayer perceptron model
 # 
 
-# In[12]:
+# In[11]:
 
 
-estimate_mlp(train_data_race_blind_ohe, train_labels, k_folds=10, max_iter=1000)
+# discard return vals; only print results
+(_,_,_,_) = estimate_mlp(train_data_race_blind_ohe, train_labels, k_folds=5, max_iter=1000)
 
 
 # > **KEY OBSERVATION**: the F1 score for the race-blind model also have a 95% confidence interval that nearly spans the whole range from 0-1.  Of the models we have tested, the original "naive" model (with the most features) performs better than our race-blind model, or our model that excluded only zip and district.
 
-# ## Experiment with hidden layer parameters in the "naive" model
-# Next, we will return to the feature set of the original "naive" model, but will explore different numbers of h
+# ## Experiment with dimensionality reduction via PCA
+# Since manual feature selection performed poorly, resulting in a confidence interval of F1 spanning from 0 to 1 in both cases, it doesn't seem to be a promising approach.  Next, we experiment with Principal Component Analysis for dimensionality reduction, starting with the "naive" set of columns.
+
+# In[12]:
+
+
+# Determine the number of principal components to achieve 90% explained variance
+n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
+
+
+# In[13]:
+
+
+print('Using %d principal components' % (n_pca))
+
+# discard return vals; only print results
+(_,_,_,_) = estimate_mlp(train_data_naive_ohe, train_labels, n_pca=n_pca, k_folds=5, max_iter=1000)
+
+
+# ## Use grid search to identify best set of hidden layer parameters
+# Since the usage of PCA seemed to improve our F1 score (and tighten its confidence interval), we will proceed to try to optimize the hidden layer parameters while using PCA.
+
+# In[14]:
+
+
+# Running grid search for different combinations of neural network parameters is slow.
+# If results already exist as a file, load them instead of re-running.
+try:
+    grid_search_results = pd.read_csv('model_neuralnet_gridsearch_results.csv')
+    print('Loaded grid search results from file.')
+except FileNotFoundError:
+    print('Performing grid search for best hidden layer parameters.')
+
+    # numbers of hidden nodes = these multipliers * # features
+    n_features = train_data_naive_ohe.shape[1]
+#     fraction = [0.25, 0.5]
+    fraction = [0.25, 0.5, 1.0, 1.5]
+    n_layer_features = (int(f * n_features) for f in fraction)
+    n_nodes = list(n_layer_features)
+
+    # create list of tuples of hidden layer param permutations
+    # only explore up to 4 hidden layers
+    hl_param_candidates = []
+    for h1 in n_nodes:
+        hl_param_candidates.append((h1))
+        for h2 in n_nodes:
+            hl_param_candidates.append((h1,h2))
+            for h3 in n_nodes:
+                hl_param_candidates.append((h1,h2,h3))
+                for h4 in n_nodes:
+                    hl_param_candidates.append((h1,h2,h3,h4))
+    
+    # train an MLP model and perform cross-validation for each parameter set
+    print('Estimating %d MLP models. This will take time!\n' % (len(hl_param_candidates)))
+    tmp_results = []        
+    for hl in hl_param_candidates:
+        tmp_acc, tmp_acc_std, tmp_f1, tmp_f1_std = estimate_mlp(train_data_naive_ohe, train_labels, 
+                                                                hidden_layers=hl, n_pca=n_pca,
+                                                                k_folds=5, max_iter=1000, print_results=False)
+        tmp_results.append((hl, tmp_acc, tmp_acc - 1.96 * tmp_acc_std, tmp_acc + 1.96 * tmp_acc_std,
+                                    tmp_f1, tmp_f1 - 1.96 * tmp_f1_std, tmp_f1 + 1.96 * tmp_f1_std))
+
+    # convert results to a dataframe for easier display
+    grid_search_results = pd.DataFrame(tmp_results)
+    grid_search_results.columns=(['Hidden Layers','Accuracy','Acc Lower CI', 'Acc Upper CI','F1','F1 Lower CI','F1 Upper CI'])
+    grid_search_results.to_csv('model_neuralnet_gridsearch_results.csv', index=False)
+
+# Display grid search results
+grid_search_results.sort_values(by='F1', ascending=False)
+
 
 # ## Final test set accuracy
 

@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[29]:
+# In[1]:
 
 
 # import necessary libraries
@@ -25,19 +25,22 @@ pd.set_option('display.max_rows', 200)
 
 # Get train-test split
 train_data, test_data, train_labels, test_labels = util.read_data()
+# convert train_labels into a dataframe in order to concatenate it
+train_labels_df = pd.DataFrame(train_labels)
+train_labels_df.columns=['high_registrations']
 
 # Concatenate training features and labels into one dataframe
-Xy_train = pd.concat([train_data, train_labels], axis=1)
+Xy_train = pd.concat([train_data, train_labels_df], axis=1)
 
 
 # ## Correlation Matrix: key non-demographic features
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[32]:
+# In[2]:
 
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+get_ipython().magic('matplotlib inline')
 
 # choose key features for correlation matrix
 corr_features = ['grade_7_enrollment',
@@ -95,7 +98,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[31]:
+# In[3]:
 
 
 # choose key features for correlation matrix
@@ -143,19 +146,20 @@ draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 # 
 # Let us look at the distribution of test taker percentage across NYC schools.
 
-# In[33]:
+# In[4]:
 
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+plt.rcParams['figure.figsize'] = [12, 3]
 sns.boxplot(x=train_data['pct_test_takers'])
 plt.show()
 
 
 # There are quite a few outliers there.  Let us look at them.
 
-# In[34]:
+# In[5]:
 
 
 display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_takers', ascending=False))
@@ -182,3 +186,29 @@ display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_ta
 # * Christa Mcauliffe: Strong [special education program](https://insideschools.org/school/20K187).
 # 
 # * New York City Lab Middle School: [Very selective](https://insideschools.org/school/02M312).
+
+# ## Verifying correlation between "equivalent" percent and rating columns
+# The definitions of these "percent" and "rating" columns on Kaggle are identical, leading us to question whether these were duplicate columns, so we plotted them against each other.  It turns out we cannot consider them to be duplicates because, for example an 85% on most plots could be a 2, 3, or 4 rating.
+
+# In[14]:
+
+
+plt.scatter(train_data['rigorous_instruction_percent'], train_data['rigorous_instruction_rating'])
+plt.title('rigorous_instruction')
+plt.show()
+plt.scatter(train_data['collaborative_teachers_percent'], train_data['collaborative_teachers_rating'])
+plt.title('collaborative_teachers')
+plt.show()
+plt.scatter(train_data['supportive_environment_percent'], train_data['supportive_environment_rating'])
+plt.title('supportive_environment')
+plt.show()
+plt.scatter(train_data['effective_school_leadership_percent'], train_data['effective_school_leadership_rating'])
+plt.title('effective_school_leadership')
+plt.show()
+plt.scatter(train_data['strong_family_community_ties_percent'], train_data['strong_family_community_ties_rating'])
+plt.title('strong_family_community_ties')
+plt.show()
+plt.scatter(train_data['trust_percent'], train_data['trust_rating'])
+plt.title('trust')
+plt.show()
+
