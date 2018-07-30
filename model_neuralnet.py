@@ -241,7 +241,7 @@ print('Using %d principal components' % (n_pca))
 # ## Use grid search to identify best set of hidden layer parameters
 # Since the usage of PCA seemed to improve our F1 score (and tighten its confidence interval), we will proceed to try to optimize the hidden layer parameters while using PCA.
 
-# In[14]:
+# In[16]:
 
 
 # Running grid search for different combinations of neural network parameters is slow.
@@ -249,7 +249,7 @@ print('Using %d principal components' % (n_pca))
 try:
     grid_search_results = pd.read_csv('model_neuralnet_gridsearch_results.csv')
     print('Loaded grid search results from file.')
-except:
+except FileNotFoundError:
     print('Performing grid search for best hidden layer parameters.')
 
     # numbers of hidden nodes = these multipliers * # features
@@ -277,7 +277,7 @@ except:
     for hl in hl_param_candidates:
         tmp_acc, tmp_acc_std, tmp_f1, tmp_f1_std = estimate_mlp(train_data_naive_ohe, train_labels, 
                                                                 hidden_layers=hl, n_pca=n_pca,
-                                                                k_folds=10, max_iter=1000, print_results=False)
+                                                                k_folds=5, max_iter=1000, print_results=False)
         tmp_results.append((hl, tmp_acc, tmp_acc - 1.96 * tmp_acc_std, tmp_acc + 1.96 * tmp_acc_std,
                                     tmp_f1, tmp_f1 - 1.96 * tmp_f1_std, tmp_f1 + 1.96 * tmp_f1_std))
 
