@@ -109,7 +109,9 @@ def ohe_data(train_data, test_data, factor_cols=['zip','district']):
 
     return train_data_ohe, test_data_ohe
     
-def read_data(data_file='data_merged/combined_data_2018-07-29.csv', do_imputation=False):
+
+def read_data(data_file='data_merged/combined_data_2018-07-30.csv', do_imputation=False):
+
     merged_df = pd.read_csv(data_file)
 
     if do_imputation:
