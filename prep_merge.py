@@ -11,7 +11,7 @@
 # ## Importing dataframes, indexed by our primary key
 # While school names may change or be input inconsistently, each school has a unique identifying DBN, sometimes referred to as a Location Code, to identify it. By importing each cleaned dataset with the DBN as the index, we are able to easily join them into a merged dataset.
 
-# In[ ]:
+# In[11]:
 
 
 import pandas as pd
@@ -22,7 +22,7 @@ import re
 pd.set_option('display.max_columns', None)
 
 
-# In[ ]:
+# In[12]:
 
 
 # Load all datasets from CSV; when loading set index to the DBN column (to enforce uniqueness)
@@ -42,7 +42,7 @@ print('Selectiveness dataset:', selectiveness_df.shape)
 # ## Checking for duplicate entries.
 # We do a quick check to make sure there are no duplicate entries.
 
-# In[ ]:
+# In[13]:
 
 
 shsat_dups = shsat_df.index.duplicated()
@@ -58,7 +58,7 @@ print("{0}.".format(bool(sum(shsat_dups) + sum(class_sizes_dups) + sum(explorer_
 # ## Inner joins for more complete data
 # We'll use inner joins to select the intersection of our datasets, thus only selecting for schools for which we have data from each dataframe.
 
-# In[ ]:
+# In[14]:
 
 
 merged_df = shsat_df.join(explorer_df, how="inner")
@@ -67,13 +67,13 @@ merged_df = merged_df.join(selectiveness_df, how="inner")
 print("Merged Dataframe shape:",merged_df.shape)
 
 
-# In[ ]:
+# In[15]:
 
 
 merged_df.head()
 
 
-# In[ ]:
+# In[16]:
 
 
 print("Merged DF shape:",merged_df.shape)
@@ -82,7 +82,7 @@ print("Merged DF shape:",merged_df.shape)
 # ## Evaluating density
 # Let's take a look at how sparse our data is.
 
-# In[ ]:
+# In[17]:
 
 
 print("Total empty cells:",merged_df.isnull().sum().sum())
@@ -93,7 +93,7 @@ print("Percent null: {0:.3f}%".format(100*merged_df.isnull().sum().sum()/(merged
 # 
 # ### Columns with Nulls
 
-# In[ ]:
+# In[18]:
 
 
 merged_df.isnull().sum()[merged_df.isnull().sum() > 0]    .sort_values(ascending=False)
@@ -101,7 +101,7 @@ merged_df.isnull().sum()[merged_df.isnull().sum() > 0]    .sort_values(ascending
 
 # ### Rows with Nulls
 
-# In[ ]:
+# In[19]:
 
 
 merged_df.isnull().sum(axis=1)[merged_df.isnull().sum(axis=1) > 0]    .sort_values(ascending=False)
@@ -109,16 +109,11 @@ merged_df.isnull().sum(axis=1)[merged_df.isnull().sum(axis=1) > 0]    .sort_valu
 
 # At the moment we don't see any of these as being offending enough to be removed, especially since we have already preserved some info from the 'school_income_estimate' feature.
 
-# ## Add giftedness and selectiveness information
-# 
-# 
-# combined_data = merged_df.join(explorer_df, how="inner")
-
 # ## Save a dated file
 # 
 # To allow updates to the merged dataframe without disrupting work on models downstream until they are ready, we save a dated merged filename.
 
-# In[ ]:
+# In[20]:
 
 
 # Get the date to create the filename.
@@ -127,7 +122,7 @@ filename = "combined_data_{0}.csv".format( d.today().isoformat() )
 print(filename)
 
 
-# In[ ]:
+# In[21]:
 
 
 # check final shape (464,69)
@@ -138,4 +133,43 @@ merged_df.shape
 
 
 merged_df.to_csv("data_merged/{0}".format(filename))
+
+
+# ## Save alternate dataset without class size information
+# Because we are missing class size data for approximately 100 schools, the `inner join` used to merge our dataframes drops those rows.  We will also save a variant of our dataset without the class size data, in case it turns out those features have low predictve value in our models.
+
+# In[22]:
+
+
+no_class_size_df = shsat_df.join(explorer_df, how="inner")
+no_class_size_df = no_class_size_df.join(selectiveness_df, how="inner")
+print("Merged Dataframe shape (without class size data):",no_class_size_df.shape)
+
+
+# ### Verify that characteristics of the dataset (in terms of nulls) are similar to above
+
+# In[28]:
+
+
+print("Total empty cells:",no_class_size_df.isnull().sum().sum())
+print("Percent null: {0:.3f}%".format(100*no_class_size_df.isnull().sum().sum()/
+                                      (no_class_size_df.shape[0]*no_class_size_df.shape[1])))
+
+# check columns with nulls
+no_class_size_df.isnull().sum()[no_class_size_df.isnull().sum() > 0]    .sort_values(ascending=False)
+
+
+# There characteristics are similar to our primary dataset, so we should feel comfortable using it if we do not need the class size data in our models.  Note that several of the columns with nulls in our primary merged dataset originally came from the class size data.  As a result, aside from `school_income_estimate`, our columns look quite good with respect to nulls.
+
+# In[27]:
+
+
+# Get the date to create the filename.
+filename = "combined_data_no_class_sizes_{0}.csv".format( d.today().isoformat() )
+print(filename)
+
+# check final shape (556, 56)
+print(no_class_size_df.shape)
+
+no_class_size_df.to_csv("data_merged/{0}".format(filename))
 
