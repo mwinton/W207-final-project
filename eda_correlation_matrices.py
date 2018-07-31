@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[14]:
+# In[1]:
 
 
 # import necessary libraries
@@ -36,7 +36,7 @@ Xy_train = pd.concat([train_data, train_labels_df], axis=1)
 # ## Verifying correlation between "equivalent" percent and rating columns
 # The definitions of these "percent" and "rating" columns on Kaggle are identical, leading us to question whether these were duplicate columns, so we plotted them against each other. 
 
-# In[15]:
+# In[2]:
 
 
 plt.rcParams['figure.figsize'] = [12, 3]
@@ -66,15 +66,17 @@ plt.show()
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[17]:
+# In[3]:
 
 
-get_ipython().magic('matplotlib inline')
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 # choose key features for correlation matrix
 corr_features = ['grade_7_enrollment',
                  'community_school', 
                  'student_attendance_rate',
+                 'gifted',
+                 'selective',
                  'percent_of_students_chronically_absent',
                  'rigorous_instruction_percent', 
                  'rigorous_instruction_rating', 
@@ -133,7 +135,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[18]:
+# In[4]:
 
 
 # choose key features for correlation matrix
@@ -143,7 +145,9 @@ demog_features =  ['economic_need_index',
                    'percent_black', 
                    'percent_hispanic', 
                    'percent_black__hispanic',
-                   'percent_white', 
+                   'percent_white',
+                   'gifted',
+                   'selective',
                    'grade_7_ela_4s_black_or_african_american',
                    'grade_7_ela_4s_hispanic_or_latino',
                    'grade_7_ela_4s_multiracial',
@@ -181,7 +185,7 @@ draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 # 
 # We would also like to look at the correlation between high registration rate and the boroughs and economic variables.
 
-# In[19]:
+# In[5]:
 
 
 # choose key features for correlation matrix
@@ -208,7 +212,7 @@ draw_heatmap(Xy_train[geo_econ_features], 'plots/corr_matrix_boroughs.png')
 # 
 # Let us look at the distribution of test taker percentage across NYC schools.
 
-# In[20]:
+# In[6]:
 
 
 plt.rcParams['figure.figsize'] = [12, 3]
@@ -218,10 +222,10 @@ plt.show()
 
 # There are quite a few outliers there.  Let us look at them.
 
-# In[21]:
+# In[8]:
 
 
-display(train_data[train_data['pct_test_takers'] >= 90].sort_values('pct_test_takers', ascending=False))
+display(train_data[train_data['pct_test_takers'] >= 80].sort_values('pct_test_takers', ascending=False))
 
 
 # ### NYC "Gifted & Talented" Program
