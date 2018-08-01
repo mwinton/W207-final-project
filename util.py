@@ -58,6 +58,37 @@ our_train_test_split = partial(train_test_split,
                                random_state=RANDOM_STATE)
 
 
+def get_dummies(train_data, test_data, factor_cols=['zip','district']):
+    '''
+        inputs: train_data, test_data (pandas dataframes)
+        returns: train_data_ohe, test_data_ohe (pandas dataframes)
+        NOTE: any factors discovered in test set, which weren't in training, are ignored
+    '''
+
+    # don't alter incoming datasets unintentionally
+    train_data_ohe = train_data.copy(deep=False)
+    test_data_ohe = test_data.copy(deep=False)
+    
+    for f in factor_cols:
+        f_train_dummies = pd.get_dummies(train_data[f], prefix=f)
+        f_test_dummies = pd.get_dummies(test_data[f], prefix=f)
+        
+        # keep track of new columns from training set
+        new_columns = f_train_dummies.columns.values
+        train_data_ohe =  train_data_ohe.join(f_train_dummies, how="inner")
+        
+        # discard columns from test set not present in training set
+        intersect_columns = list(set(new_columns) & set(f_test_dummies.columns.values))
+        f_test_dummies = f_test_dummies[intersect_columns]
+        test_data_ohe =  test_data_ohe.join(f_test_dummies, how="inner")
+
+    print('Train data initial shape:',train_data.shape)
+    print('Test  data initial shape:',test_data.shape)
+    print('Train data OHE\'d shape:',train_data_ohe.shape)
+    print('Test  data OHE\'d shape:',test_data_ohe.shape)
+
+    return train_data_ohe, test_data_ohe
+    
 def get_num_pcas (train_data, var_explained=0.9):
     # Determine the number of principal components to achieve target explained variance
     cum_explained_variance_ratios = [0]
@@ -87,6 +118,7 @@ def get_num_pcas (train_data, var_explained=0.9):
 
 def ohe_data(train_data, test_data, factor_cols=['zip','district']):
     '''
+        DEPRECATED!!!! Use util.get_dummies(...) instead.
         inputs: train_data, test_data (pandas dataframes)
         returns: train_data_ohe, test_data_ohe (both sparse matrices)
     '''
