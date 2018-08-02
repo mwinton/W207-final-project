@@ -64,24 +64,36 @@ def get_dummies(train_data, test_data, factor_cols=['zip','district']):
         returns: train_data_ohe, test_data_ohe (pandas dataframes)
         NOTE: any factors discovered in test set, which weren't in training, are ignored
     '''
-
-    # don't alter incoming datasets unintentionally
-    train_data_ohe = train_data.copy(deep=False)
-    test_data_ohe = test_data.copy(deep=False)
     
     for f in factor_cols:
-        f_train_dummies = pd.get_dummies(train_data[f], prefix=f)
-        f_test_dummies = pd.get_dummies(test_data[f], prefix=f)
-        
-        # keep track of new columns from training set
-        new_columns = f_train_dummies.columns.values
-        train_data_ohe =  train_data_ohe.join(f_train_dummies, how="inner")
-        
-        # discard columns from test set not present in training set
-        intersect_columns = list(set(new_columns) & set(f_test_dummies.columns.values))
-        f_test_dummies = f_test_dummies[intersect_columns]
-        test_data_ohe =  test_data_ohe.join(f_test_dummies, how="inner")
+        train_dummies = pd.get_dummies(train_data[f], prefix=f)
+        tmp_test_dummies = pd.get_dummies(test_data[f], prefix=f)
 
+        # create empty test_dummies dataframe; fill only with columns also in train_dummies
+        # it's important to have the same number of columns in both dataframes
+        test_dummies = pd.DataFrame()
+        
+        train_dummy_cols = train_dummies.columns.values
+        tmp_test_dummy_cols = tmp_test_dummies.columns.values
+        
+        # this loop ensures the same dummy columns in train & test (in the same order)
+        for col in train_dummy_cols:
+            # if a training dummy was also created for test, keep the test dummy
+            if col in tmp_test_dummy_cols:
+                test_dummies[col]=tmp_test_dummies[col]
+            # if training a dummy was not created for test, add it (with all zeros)
+            else:
+                test_dummies[col] = pd.Series([0 for x in range(len(tmp_test_dummies.index))],
+                                              index=tmp_test_dummies.index)
+    
+        # join the new dummies to the original dataset
+        train_data_merged = train_data.join(train_dummies, how="inner")
+        test_data_merged = test_data.join(test_dummies, how="inner")
+
+    # drop original columns after one hot encoding
+    train_data_ohe = train_data_merged.drop(factor_cols, axis=1)
+    test_data_ohe = test_data_merged.drop(factor_cols, axis=1)
+    
     print('Train data initial shape:',train_data.shape)
     print('Test  data initial shape:',test_data.shape)
     print('Train data OHE\'d shape:',train_data_ohe.shape)
