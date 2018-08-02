@@ -463,10 +463,7 @@ predicted_test_takers = np.multiply(df_final['grade_7_enrollment'], median_pct)
 delta = predicted_test_takers - df_final['num_shsat_test_takers']
 
 # Multiply the delta by the minority percentage of the school to determine how many minority students did not take the test
-minority_delta = np.round(np.multiply(delta, df_final['percent_black__hispanic']), 0)
-
-# Add this number to the dataframe
-df_final['minority_delta'] = minority_delta
+df_final['minority_delta'] = np.round(np.multiply(delta, df_final['percent_black__hispanic']), 0)
 
 # Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score'
 df_final['score'] = np.multiply(df_final['minority_delta'], df_final['1s']/10)
