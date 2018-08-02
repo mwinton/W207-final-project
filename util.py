@@ -84,7 +84,7 @@ def get_dummies(train_data, test_data, factor_cols=['zip','district']):
 
     # drop original columns after one hot encoding
     train_data_ohe = train_data_tmp.drop(factor_cols, axis=1)
-    test_data_ohe = train_data_tmp.drop(factor_cols, axis=1)
+    test_data_ohe = test_data_tmp.drop(factor_cols, axis=1)
     
     print('Train data initial shape:',train_data.shape)
     print('Test  data initial shape:',test_data.shape)
