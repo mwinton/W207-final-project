@@ -66,8 +66,8 @@ def get_dummies(train_data, test_data, factor_cols=['zip','district']):
     '''
 
     # don't alter incoming datasets unintentionally
-    train_data_ohe = train_data.copy(deep=False)
-    test_data_ohe = test_data.copy(deep=False)
+    train_data_tmp = train_data.copy(deep=False)
+    test_data_tmp = test_data.copy(deep=False)
     
     for f in factor_cols:
         f_train_dummies = pd.get_dummies(train_data[f], prefix=f)
@@ -75,13 +75,17 @@ def get_dummies(train_data, test_data, factor_cols=['zip','district']):
         
         # keep track of new columns from training set
         new_columns = f_train_dummies.columns.values
-        train_data_ohe =  train_data_ohe.join(f_train_dummies, how="inner")
+        train_data_tmp =  train_data_tmp.join(f_train_dummies, how="inner")
         
         # discard columns from test set not present in training set
         intersect_columns = list(set(new_columns) & set(f_test_dummies.columns.values))
         f_test_dummies = f_test_dummies[intersect_columns]
-        test_data_ohe =  test_data_ohe.join(f_test_dummies, how="inner")
+        test_data_tmp =  test_data_tmp.join(f_test_dummies, how="inner")
 
+    # drop original columns after one hot encoding
+    train_data_ohe = train_data_tmp.drop(factor_cols, axis=1)
+    test_data_ohe = train_data_tmp.drop(factor_cols, axis=1)
+    
     print('Train data initial shape:',train_data.shape)
     print('Test  data initial shape:',test_data.shape)
     print('Train data OHE\'d shape:',train_data_ohe.shape)
