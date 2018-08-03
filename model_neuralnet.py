@@ -7,13 +7,14 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[16]:
+# In[44]:
 
 
 # import necessary libraries
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import time
 import util
 
@@ -328,15 +329,32 @@ except TypeError:  # eval isn't needed when results are still in memory
 best_hl_params
 
 
-# ## Final test set accuracy
+# ## Calculate "out-of-sample" test set accuracy
+# At this point we can use our "best" model parameters to classify our test set, and compare to true labels.
+# 
+# > NOTE: This code was left commented out until after hyperparameter optimization was complete.  
 
-# In[ ]:
+# In[63]:
 
 
-# y_predict = mlp.predict(X_test)
+# set up pipeline with optimal parameters
+pipeline = make_pipeline(StandardScaler(with_mean=False), 
+                     PCA(n_components=n_pca, random_state=207),
+                     MLPClassifier(hidden_layer_sizes=best_hl_params,
+                                   max_iter=1000, random_state=207))
+pipeline.fit(train_data_naive_ohe, train_labels)
+test_predict = pipeline.predict(test_data_naive_ohe)
 
-# print(confusion_matrix(y_test,y_predict))
-# print(classification_report(y_test,y_predict))
+print('Test set accuracy: %.2f\n' % (np.mean(test_predict==test_labels)))
+print('Confusion matrix:')
+cm = confusion_matrix(test_labels, test_predict)
+print(cm)
+tn, fp, fn, tp = cm.ravel()
+print('True negatives: %d' % (tn))
+print('True positives: %d' % (tp))
+print('False negatives: %d' % (fn))
+print('False positives: %d\n' % (fp))
+print(classification_report(test_labels, test_predict))
 
 
 # ## Analyze false positives to make recommendations to PASSNYC
@@ -452,4 +470,22 @@ df_passnyc.insert(0, 'rank', range(1,df_passnyc.shape[0]+1))
 df_passnyc.to_csv('results/results.neuralnet.csv')
 
 df_passnyc
+
+
+# ## Post-hoc comparison of prioritization score vs. economic need index
+# Even though economic need index was not an explicit factor in our post-classification prioritization scoring/ranking system, it is interesting to observe that there is some correlation:
+
+# In[50]:
+
+
+x = df_passnyc['score']
+y = df_passnyc['economic_need_index']
+sns.regplot(x='score', y='economic_need_index', data=df_passnyc,
+           fit_reg=True, x_jitter=1, scatter_kws={'alpha': 0.5, 's':4})
+# plt.scatter(x, y)
+# plt.plot(np.unique(x), np.poly1d(np.polyfit(x, y, 1))(np.unique(x)))
+plt.xlabel('PASSNYC Priorization "Score"')
+plt.ylabel('Economic Need Index')
+plt.grid()
+plt.show()
 
