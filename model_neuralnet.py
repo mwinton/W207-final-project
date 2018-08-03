@@ -7,13 +7,14 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[62]:
+# In[16]:
 
 
 # import necessary libraries
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import time
 import util
 
 from sklearn.decomposition import PCA
@@ -35,7 +36,7 @@ get_ipython().magic('matplotlib inline')
 # 
 # Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
 
-# In[63]:
+# In[17]:
 
 
 train_data, test_data, train_labels, test_labels = util.read_data(do_imputation=True)
@@ -45,7 +46,7 @@ print(train_labels.shape)
 
 # > **KEY OBSERVATION**: a hypothetical model that is hard-coded to predict a `negative` result every time would be ~77% accurate.  So, we should not accept any machine-learned model with a lower accuracy than that.  This also suggests that F1 score is a better metric to assess our work since it incorporates both precision and recall.
 
-# In[64]:
+# In[18]:
 
 
 train_data.info()
@@ -56,7 +57,7 @@ train_data.head(10)
 
 # ## Create a function to estimate MLP models and report results
 
-# In[65]:
+# In[19]:
 
 
 def estimate_mlp(train_data, train_labels, n_pca=None,
@@ -83,7 +84,6 @@ def estimate_mlp(train_data, train_labels, n_pca=None,
                                                max_iter=max_iter, random_state=207))
 
     # Do k-fold cross-validation, collecting both "test" accuracy and F1 
-    print('Running cross-validation, please be patient...')
     cv_scores = cross_validate(pipeline, train_data, train_labels, cv=k_folds, scoring=['accuracy','f1'])
     if print_results:
         util.print_cv_results(cv_scores)
@@ -97,7 +97,7 @@ def estimate_mlp(train_data, train_labels, n_pca=None,
 # ## Train and fit a "naive" model
 # For the first model, we'll use all features except SHSAT-related features because they are too correlated with the way we calculated the label.  We'll also drop `school_income_estimate` because it's missing for ~2/3 of the schools.  We drop zip code (too granular to have many schools per zip) in favor of the indicator variables `in_[borough]`.
 
-# In[66]:
+# In[20]:
 
 
 drop_cols = ['dbn',
@@ -120,7 +120,7 @@ train_data_naive.head()
 # ## One Hot Encode the categorical explanatory variables
 # Columns such as zip code and school district ID, which are integers should not be fed into an ML model as integers.  Instead, we would need to treat them as factors and perform one-hot encoding.  Since we have already removed zip code from our dataframe (in favor of boroughs), we only need to one hot encode `district`.
 
-# In[67]:
+# In[21]:
 
 
 train_data_naive_ohe, test_data_naive_ohe = util.get_dummies(train_data_naive, test_data_naive,
@@ -131,7 +131,7 @@ train_data_naive_ohe.head()
 # ## Estimate the "naive" multilayer perceptron model
 # This first "naive" model uses all except for the SHSAT-related features, as described above.  We create a pipeline that will be used for k-fold cross-validation.  First, we scale the features, then estimate a multilayer perceptron neural network with 3 hidden layers, each with the same number of nodes as we have features.
 
-# In[68]:
+# In[22]:
 
 
 # discard return vals; only print results
@@ -141,7 +141,7 @@ train_data_naive_ohe.head()
 # ## Train a "naive" model without location (zip, borough, or district)
 # Next, we will remove the borough and district features and compare accuracy to the model that included one hot-encoded versions of the borough and district factors.
 
-# In[69]:
+# In[23]:
 
 
 drop_cols = ['dbn',
@@ -170,7 +170,7 @@ print(train_labels.shape)
 # ## Estimate the "naive" multilayer perceptron model without location
 # 
 
-# In[70]:
+# In[24]:
 
 
 # discard return vals; only print results
@@ -185,7 +185,7 @@ print(train_labels.shape)
 # ### Preprocess new X_train and X_test datasets
 # We will remove all explicitly demographic columns, as well as economic factors, borough, and zip code, which are likely highly correlated with demographics.
 
-# In[71]:
+# In[25]:
 
 
 # drop SHSAT-related columns
@@ -226,7 +226,7 @@ train_data_race_blind_ohe, test_data_race_blind_ohe =util.get_dummies(train_data
 # ## Estimate the "race blind" multilayer perceptron model
 # 
 
-# In[72]:
+# In[26]:
 
 
 # discard return vals; only print results
@@ -238,14 +238,14 @@ train_data_race_blind_ohe, test_data_race_blind_ohe =util.get_dummies(train_data
 # ## Experiment with dimensionality reduction via PCA
 # Since manual feature selection performed poorly, resulting in a confidence interval of F1 spanning from 0 to 1 in both cases, it doesn't seem to be a promising approach.  Next, we experiment with Principal Component Analysis for dimensionality reduction, starting with the "naive" set of columns.
 
-# In[73]:
+# In[27]:
 
 
 # Determine the number of principal components to achieve 90% explained variance
 n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
 
 
-# In[74]:
+# In[28]:
 
 
 print('Using %d principal components' % (n_pca)) # currently n_pca=69
@@ -257,21 +257,24 @@ print('Using %d principal components' % (n_pca)) # currently n_pca=69
 # ## Use grid search to identify best set of hidden layer parameters
 # Since the usage of PCA seemed to improve our F1 score (and tighten its confidence interval), we will proceed to try to optimize the hidden layer parameters while using PCA.
 
-# In[75]:
+# In[29]:
 
 
 # Running grid search for different combinations of neural network parameters is slow.
 # If results already exist as a file, load them instead of re-running.
 try:
-    grid_search_results = pd.read_csv('model_neuralnet_gridsearch_results.csv')
+    grid_search_results = pd.read_csv('cache_neuralnet/gridsearch_results.csv')
     print('Loaded grid search results from file.')
 except FileNotFoundError:
     print('Performing grid search for best hidden layer parameters.')
 
+    # We'll time it and report how long it took to run:
+    start_time = time.time()
+
     # numbers of hidden nodes = these multipliers * # features
     n_features = train_data_naive_ohe.shape[1]
 #     fraction = [0.25, 0.5]
-    fraction = [0.25, 0.5, 1.0, 1.5]
+    fraction = [0.25, 0.5, 1.0, 1.5, 2.0]
     n_layer_features = (int(f * n_features) for f in fraction)
     n_nodes = list(n_layer_features)
 
@@ -297,27 +300,37 @@ except FileNotFoundError:
         tmp_results.append((hl, tmp_acc, tmp_acc - 1.96 * tmp_acc_std, tmp_acc + 1.96 * tmp_acc_std,
                                     tmp_f1, tmp_f1 - 1.96 * tmp_f1_std, tmp_f1 + 1.96 * tmp_f1_std))
 
+    # calculated elapsed time
+    end_time = time.time()
+    took = int(end_time - start_time)
+    print("Grid search took {0:d} minutes, {1:d} seconds.".format(took // 60, took % 60))
+
     # convert results to a dataframe for easier display
     grid_search_results = pd.DataFrame(tmp_results)
     grid_search_results.columns=(['Hidden Layers','Accuracy','Acc Lower CI', 'Acc Upper CI','F1','F1 Lower CI','F1 Upper CI'])
-    grid_search_results.to_csv('model_neuralnet_gridsearch_results.csv', index=False)
+    grid_search_results.to_csv('cache_neuralnet/gridsearch_results.csv', index=False)
 
 # Display grid search results
 grid_search_results.sort_values(by='F1', ascending=False)
 
 
-# In[76]:
+# In[32]:
 
 
 # put best grid search params into a varaiable
 best_param_idx = grid_search_results['F1'].idxmax()
-best_hl_params = eval(grid_search_results['Hidden Layers'][best_param_idx])
+
+try:  # this is needed when loading from file
+    best_hl_params = eval(grid_search_results['Hidden Layers'][best_param_idx])
+except TypeError:  # eval isn't needed when results are still in memory
+    best_hl_params = grid_search_results['Hidden Layers'][best_param_idx]
+    
 best_hl_params
 
 
 # ## Final test set accuracy
 
-# In[77]:
+# In[ ]:
 
 
 # y_predict = mlp.predict(X_test)
@@ -329,7 +342,7 @@ best_hl_params
 # ## Analyze false positives to make recommendations to PASSNYC
 # False positives are the schools that our model predicted to have a high SHSAT registration rate, but in reality they did not.  This suggests that they have a lot in common with the high registration schools, but for some reason fall short.  As a result, we believe these are good candidates for the PASSNYC organization to engage with, as investing in programs with these schools may be more highly to payoff with increase registration rates.  We will prioritize the schools based on features that align with the PASSNYC diversity-oriented mission.
 
-# In[78]:
+# In[33]:
 
 
 # recombine train and test data into an aggregate dataset
@@ -354,7 +367,7 @@ for f in range(1, (folds * repeats) + 1):
 predictions = pd.DataFrame(index=X_best.index, columns=fold_list)
 
 
-# In[79]:
+# In[34]:
 
 
 # Iterate through the Repeated Stratified K Fold, and and fill out the DataFrames
@@ -373,13 +386,13 @@ for train, test in rskf.split(X_best_npa, y_npa):
 print('Completed')
 
 
-# In[82]:
+# In[35]:
 
 
 predictions.head()
 
 
-# In[100]:
+# In[36]:
 
 
 # Create columns for predictions and labels
@@ -398,7 +411,7 @@ X_predicted.rename(columns={0:"high_registrations"}, inplace=True)
 X_predicted = X_predicted.sort_values(by=['1s', '0s'], ascending=[False, True])
 
 
-# In[128]:
+# In[37]:
 
 
 # Retain only the columns of interest for PASSNYC prioritization
