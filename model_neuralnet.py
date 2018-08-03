@@ -360,18 +360,13 @@ print(classification_report(test_labels, test_predict))
 # ## Analyze false positives to make recommendations to PASSNYC
 # False positives are the schools that our model predicted to have a high SHSAT registration rate, but in reality they did not.  This suggests that they have a lot in common with the high registration schools, but for some reason fall short.  As a result, we believe these are good candidates for the PASSNYC organization to engage with, as investing in programs with these schools may be more highly to payoff with increase registration rates.  We will prioritize the schools based on features that align with the PASSNYC diversity-oriented mission.
 
-# In[33]:
+# In[69]:
 
 
 # recombine train and test data into an aggregate dataset
 X_orig = pd.concat([train_data, test_data], sort=True)  # including all columns (need for display purposes)
 X_best = pd.concat([train_data_naive_ohe, test_data_naive_ohe], sort=True)  # only columns from best model
 y = np.concatenate((train_labels,test_labels))
-
-X_best_npa = np.array(X_best)
-y_npa = np.array(y)
-X_pos = X_best[y==1]
-X_neg = X_best[y==0]
 
 # Run k-fold cross-validation with 5 folds 10 times, which means every school is predicted 10 times.
 folds = 5
@@ -385,32 +380,31 @@ for f in range(1, (folds * repeats) + 1):
 predictions = pd.DataFrame(index=X_best.index, columns=fold_list)
 
 
-# In[34]:
+# In[76]:
 
 
 # Iterate through the Repeated Stratified K Fold, and and fill out the DataFrames
 counter = 1
 print('Please be patient...')
-for train, test in rskf.split(X_best_npa, y_npa):
-    # TODO: it might be possible to refact this into util if caller passes in a configured pipeline
+for train, test in rskf.split(X_best, y):
     pipeline = make_pipeline(StandardScaler(with_mean=False), 
                          PCA(n_components=n_pca, random_state=207),
                          MLPClassifier(hidden_layer_sizes=best_hl_params,
                                        max_iter=1000, random_state=207))
-    pipeline.fit(X_best_npa[train], y_npa[train])
-    predicted_labels = pipeline.predict(X_best_npa[test])
+    pipeline.fit(X_best.iloc[train,], y[train,])
+    predicted_labels = pipeline.predict(X_best.iloc[test,])
     predictions.iloc[test, counter-1] = predicted_labels
     counter += 1
 print('Completed')
 
 
-# In[35]:
+# In[77]:
 
 
 predictions.head()
 
 
-# In[36]:
+# In[78]:
 
 
 # Create columns for predictions and labels
@@ -429,7 +423,7 @@ X_predicted.rename(columns={0:"high_registrations"}, inplace=True)
 X_predicted = X_predicted.sort_values(by=['1s', '0s'], ascending=[False, True])
 
 
-# In[37]:
+# In[79]:
 
 
 # Retain only the columns of interest for PASSNYC prioritization
@@ -475,7 +469,7 @@ df_passnyc
 # ## Post-hoc comparison of prioritization score vs. economic need index
 # Even though economic need index was not an explicit factor in our post-classification prioritization scoring/ranking system, it is interesting to observe that there is some correlation:
 
-# In[50]:
+# In[80]:
 
 
 x = df_passnyc['score']
