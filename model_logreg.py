@@ -6,7 +6,7 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[1]:
+# In[ ]:
 
 
 # import necessary libraries
@@ -27,7 +27,7 @@ get_ipython().magic('matplotlib inline')
 # 
 # Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
 
-# In[2]:
+# In[ ]:
 
 
 # read the "production" version of the cleaned & merged dataset
@@ -36,7 +36,7 @@ print(train_data_orig.shape)
 print(train_labels.shape)
 
 
-# In[3]:
+# In[ ]:
 
 
 # Keep the numeric columns.
@@ -122,7 +122,7 @@ train_data.head()
 # ## Hyperparameter Tuning
 # Find the optimal C-score
 
-# In[4]:
+# In[ ]:
 
 
 from sklearn.preprocessing import StandardScaler
@@ -146,7 +146,7 @@ print('Best C:', best_c)
 
 # ## Make Pipeline and K-fold validation
 
-# In[59]:
+# In[ ]:
 
 
 from sklearn.model_selection import cross_val_score, cross_validate
@@ -161,7 +161,7 @@ util.print_cv_results(cv_scores)
 
 # ## Examine coefficients
 
-# In[6]:
+# In[ ]:
 
 
 # recombine train and test data into an aggregate dataset
@@ -172,10 +172,11 @@ X_pos = X_i[y==1]
 X_neg = X_i[y==0]
 
 
-# In[7]:
+# In[ ]:
 
 
 from sklearn.model_selection import RepeatedStratifiedKFold
+import sklearn.metrics as metrics
 
 # Run coefficient analysis on 100% of the data
 np_train_data = np.array(scaler.fit_transform(X_i))
@@ -199,6 +200,7 @@ for train, test in rskf.split(np_train_data, np_train_labels):
     log = LogisticRegression(C=best_c, penalty=best_penalty, random_state=207)
     log.fit(np_train_data[train], np_train_labels[train])
     predicted_labels = log.predict(np_train_data[test])
+    #log_score = metrics.accuracy_score(np_train_labels[test], predicted_labels)
     coefs['k{}'.format(counter)] = log.coef_[0]
     predictions.iloc[test, counter-1] = predicted_labels
     counter += 1
@@ -212,7 +214,7 @@ sorted_coefs
 # ## Distributions
 # ### Most positively-influential features
 
-# In[8]:
+# In[ ]:
 
 
 # Get the top and bottom 5 most influential coefficients
@@ -229,7 +231,7 @@ plt.show()
 
 # ### Most negatively-influential features
 
-# In[9]:
+# In[ ]:
 
 
 fig = plt.figure(figsize=(20,60))
@@ -245,7 +247,7 @@ plt.show()
 # ## Examining Wrong Answers
 # 
 
-# In[10]:
+# In[ ]:
 
 
 import seaborn as sns
@@ -256,7 +258,7 @@ ax = sns.regplot(X_neg.grade_7_math_4s_hispanic_or_latino, X_neg.grade_7_ela_4s_
 ax.legend()
 
 
-# In[11]:
+# In[ ]:
 
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -266,7 +268,7 @@ ax.set_xlabel('Number of Students achieving a score of 4', fontsize=15)
 ax.legend()
 
 
-# In[12]:
+# In[ ]:
 
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -280,7 +282,7 @@ ax.legend()
 # ### Heatmap Analysis
 # We can build a table of all the kfold predictions, and see the degree to which the model got each school right or wrong
 
-# In[50]:
+# In[ ]:
 
 
 predictions['1s'] = predictions.iloc[:,:50].sum(axis=1)
@@ -288,7 +290,7 @@ predictions['0s'] = (predictions.iloc[:,:50]==0).sum(axis=1)
 predictions['true'] = y
 
 
-# In[14]:
+# In[ ]:
 
 
 # Create a table of raw results, along with the number of votes each received and the true value
@@ -318,16 +320,17 @@ X_result_weighted_trimmed = X_result_weighted.drop(drop_cols, axis=1)
 X_result_weighted_trimmed.head()
 
 
-# In[46]:
+# In[ ]:
 
 
-print("{:n}".format(1.25//1))
+# Figure out the accuracy of the consensus prediction.
 
 
-# In[48]:
+# In[ ]:
 
 
 fig, ax = plt.subplots(figsize=(18,200))
+fig.patch.set_facecolor('white')
 im = ax.imshow(X_result_weighted_trimmed, cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(X_result_weighted_trimmed.columns)))
@@ -346,7 +349,7 @@ plt.show()
 
 # It is perhaps most useful to examine the false positives - that is, schools that did NOT have high SHSAT registrations, but that the model thought SHOULD have.  We'll put the threshhold at 5 or more incorrect "true" classifications, and rank them in descending order (ie, the schools the model got most consistently wrong at the top).
 
-# In[16]:
+# In[ ]:
 
 
 false_positives = predictions[predictions['true']==0]
@@ -356,7 +359,7 @@ fp_result = pd.concat([false_positives, X_orig], axis=1, join='inner')
 fp_result.head()
 
 
-# In[17]:
+# In[ ]:
 
 
 scaled_fp_X = scaler.fit_transform(fp_result.iloc[:,1:])
@@ -440,7 +443,7 @@ plt.show()
 
 # ## Final ranking for PASSNYC
 
-# In[65]:
+# In[ ]:
 
 
 # Just the columns of interest
@@ -452,25 +455,23 @@ final_features = ['dbn',
 pct_features = ['pct_test_takers',
                'percent_black__hispanic']
 df_pct = np.multiply(X_orig[pct_features], .01)
-# Merge these seven columns to one DataFrame
+
+# Merge these columns to one DataFrame, along with number of 1 predictions and the true value
 df_final = pd.concat([X_orig[final_features], df_pct, predictions['1s'], predictions['true']], axis=1)
 
 # Determine the number of test takers this school would have needed to meet the median percentage of high_registrations
 median_pct = np.median(X_orig[y==1]['pct_test_takers'])/100
 predicted_test_takers = np.multiply(df_final['grade_7_enrollment'], median_pct)
 
-# Subtract the number of actual test takers from the hypothetical minimum number
+# Subtract the number of actual test takers from the hypothetical median number
 delta = predicted_test_takers - df_final['num_shsat_test_takers']
 
-# Multiply the delta by the minority percentage of the school to determine how many minority students did not take the test
+# Multiply the delta by the minority percentage of the school to estimate how many minority students did not take the test
 df_final['minority_delta'] = np.round(np.multiply(delta, df_final['percent_black__hispanic']), 0)
 
-# Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score'
+# Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score', and sort by this.
 df_final['score'] = np.multiply(df_final['minority_delta'], df_final['1s']/10)
-
-# Multiply the score by the cross-validated F1 score to get a final weighted score, and sort by this score.
-df_final['weighted_score'] = np.multiply(df_final['score'], cv_f1)
-df_final = df_final.sort_values(by='weighted_score', ascending=False)
+df_final = df_final.sort_values(by='score', ascending=False)
 
 # Create a rank order column
 df_final.insert(0, 'rank', range(1,df_final.shape[0]+1))
