@@ -36,10 +36,11 @@ print(train_data_orig.shape)
 print(train_labels.shape)
 
 
+# Filter to the columns that we will use in the model.  `district` and `zip`, while numeric, do not hold mathematical meaning and reduce accuracy and interpretability (it makes no sense to say that the higher or lower your district, the more or less likely you are to be a high-registering school).  `school_income_estimate` is too sparse to be be useful.  These columns are dropped from the model.
+
 # In[ ]:
 
 
-# Keep the numeric columns.
 features_to_keep = [
                     #'district', 
                     #'zip',
@@ -47,7 +48,6 @@ features_to_keep = [
                     'economic_need_index', 
                     #'school_income_estimate',
                     'grade_7_enrollment',
-                    #'number_enrolled',
                     'percent_ell', 
                     'percent_asian', 
                     'percent_black', 
@@ -120,7 +120,7 @@ train_data.head()
 
 
 # ## Hyperparameter Tuning
-# Find the optimal C-score
+# Find the optimal C-score and penalty using GridSearchCV.
 
 # In[ ]:
 
@@ -145,6 +145,7 @@ print('Best C:', best_c)
 
 
 # ## Make Pipeline and K-fold validation
+# Using five k-folds and the optimal hyperparameters from above, determine the overall accuracy and F1 score for the model.
 
 # In[ ]:
 
@@ -159,7 +160,27 @@ cv_f1 = cv_scores['test_f1'].mean()
 util.print_cv_results(cv_scores)
 
 
+# ## Apply model to the test set
+# Check for overfitting by applying the model to the test set and reporting back accuracy and F1 score.
+
+# In[ ]:
+
+
+import sklearn.metrics as metrics
+
+lr = LogisticRegression(C=best_c, penalty=best_penalty, random_state=207)
+train_data_scaled, test_data_scaled = scaler.fit_transform(train_data), scaler.fit_transform(test_data)
+lr.fit(train_data_scaled, train_labels)
+predicted_labels = lr.predict(test_data_scaled)
+lr_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
+lr_score_f1 = metrics.f1_score(test_labels, predicted_labels)
+
+print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
+     .format(lr_score_accuracy*100, lr_score_f1))
+
+
 # ## Examine coefficients
+# For a better understanding of the model, including which factors are most important for predicting a high-registering school, we turn to an analysis of the model coefficients.  As the goal here is not prediction but comprehension, the first step is to recombine the data into a set that contains 100% of the schools.
 
 # In[ ]:
 
@@ -170,13 +191,13 @@ X_i = pd.concat([train_data, test_data])
 y = np.concatenate((train_labels,test_labels))
 X_pos = X_i[y==1]
 X_neg = X_i[y==0]
+X_pos
 
 
 # In[ ]:
 
 
 from sklearn.model_selection import RepeatedStratifiedKFold
-import sklearn.metrics as metrics
 
 # Run coefficient analysis on 100% of the data
 np_train_data = np.array(scaler.fit_transform(X_i))
@@ -188,11 +209,16 @@ repeats = 10
 rskf = RepeatedStratifiedKFold(n_splits=folds, n_repeats= repeats, random_state=207)
 fold_list = []
 
-# Build two dataframes from the results, with columns for each k-fold
+# Build multiple dataframes from the results, with columns for each k-fold
 for f in range(1, (folds*repeats)+1):
     fold_list.append('k{}'.format(f))
+# This contains the coefficients for every feature in every test
 coefs = pd.DataFrame(index=train_data.columns, columns=fold_list)
+# This contains the predicted value for each school tested (20% of the dataset each time)
 predictions = pd.DataFrame(index=X_i.index, columns = fold_list)
+# This contains the probabilities that each tested school will be a 0 or a 1, for use in later analysis
+probs_0 = pd.DataFrame(index=X_i.index, columns = fold_list)
+probs_1 = pd.DataFrame(index=X_i.index, columns = fold_list)
 
 # Iterate through the Repeated Stratified K Fold, and and fill out the DataFrames
 counter = 1
@@ -200,9 +226,11 @@ for train, test in rskf.split(np_train_data, np_train_labels):
     log = LogisticRegression(C=best_c, penalty=best_penalty, random_state=207)
     log.fit(np_train_data[train], np_train_labels[train])
     predicted_labels = log.predict(np_train_data[test])
-    #log_score = metrics.accuracy_score(np_train_labels[test], predicted_labels)
+    predicted_probs = log.predict_proba(np_train_data[test])
     coefs['k{}'.format(counter)] = log.coef_[0]
     predictions.iloc[test, counter-1] = predicted_labels
+    probs_0.iloc[test, counter-1] = predicted_probs[:,0]
+    probs_1.iloc[test, counter-1] = predicted_probs[:,1]
     counter += 1
 
 # Find the average coefficient across all 50 regressions, and sort descending
@@ -213,6 +241,7 @@ sorted_coefs
 
 # ## Distributions
 # ### Most positively-influential features
+# Using the average coefficients, we can discover the features that have the greatest effect in predicting both a 1 (positive) or a zero (negative).  Histograms can show us the different distributions for high-registering and low-registering schools in these categories.
 
 # In[ ]:
 
@@ -279,6 +308,24 @@ ax.set_xlabel('Percent of school either Asian or Hispanic', fontsize=15)
 ax.legend()
 
 
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax = sns.regplot(X_i.economic_need_index, y, logistic=True, label="Economic Need Index")
+ax.set_xlabel('Economic Need Index', fontsize=15)
+
+
+# In[ ]:
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+ax.set_title('Distribution for {}'.format('Economic Need Index'), fontsize=17)
+ax.hist(X_pos['economic_need_index'], bins=20, alpha=0.5, label="high registrants", density=True)
+ax.hist(X_neg['economic_need_index'], bins=20, alpha=0.5, label="low registrants", density=True)
+ax.legend()
+
+
 # ### Heatmap Analysis
 # We can build a table of all the kfold predictions, and see the degree to which the model got each school right or wrong
 
@@ -289,41 +336,44 @@ predictions['1s'] = predictions.iloc[:,:50].sum(axis=1)
 predictions['0s'] = (predictions.iloc[:,:50]==0).sum(axis=1)
 predictions['true'] = y
 
+predictions['1_prob'] = probs_1.mean(axis=1)
+predictions['0_prob'] = probs_0.mean(axis=1)
+predictions = predictions.sort_values(by=['1_prob'], ascending=False)
+
 
 # In[ ]:
 
 
 # Create a table of raw results, along with the number of votes each received and the true value
-X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], pd.DataFrame(y)], axis=1, join_axes=[X_i.index])
+X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], predictions['true'], predictions['1_prob']], axis=1, join_axes=[X_i.index])
 # Rename the y columns to be more descriptive
 X_predicted.rename(columns={0:"high_registrations"}, inplace=True)
 # Sort by number of votes, most votes for 1 at the top and most votes for 0 at the bottom
-X_predicted = X_predicted.sort_values(by=['1s', '0s'], ascending=[False, True])
+X_predicted = X_predicted.sort_values(by=['1_prob'], ascending=False)
 
 # Normalize the values of the data columns
 scaled_X_predicted = scaler.fit_transform(X_predicted)
 # Multiply the normalized value by the average coefficient to get a weighted influence score
 avg_coefs = np.array(coefs['avg'])
-weighted_values = np.multiply(scaled_X_predicted[:, :-3], avg_coefs)
+weighted_values = np.multiply(scaled_X_predicted[:, :-4], avg_coefs)
 # Make a new copy of the results dataframe, and paste in the scaled values for the data columns
 X_result_weighted = X_predicted.copy()
-X_result_weighted.iloc[:, :-3] = weighted_values
+X_result_weighted.iloc[:, :-4] = weighted_values
 # Manually scale the vote columns to between -1.5 and 1.5 so they don't overweight the heatmap
-X_result_weighted.iloc[:, -3:-1] = np.multiply(X_predicted.iloc[:,-3:-1], .15)
+X_result_weighted.iloc[:, -4:-3] = predictions['1_prob']
+X_result_weighted.iloc[:, -3:-2] = predictions['0_prob']
+X_result_weighted = X_result_weighted.sort_values(by=['1s', '0s'], ascending=[False, True])
+#X_predicted = X_predicted.set_index(X_result_weighted.index)
+
+#X_result_weighted.iloc[:, -3:-1] = np.multiply(X_predicted.iloc[:,-3:-1], .15)
 
 # Check the variation in every column, and drop the columns that don't show much effect on the result
-drop_cols = []
+drop_cols = ['1_prob']
 for c in X_result_weighted.columns:
     if X_result_weighted[c].max() - X_result_weighted[c].min() < .6:
         drop_cols.append(c)
 X_result_weighted_trimmed = X_result_weighted.drop(drop_cols, axis=1)
 X_result_weighted_trimmed.head()
-
-
-# In[ ]:
-
-
-# Figure out the accuracy of the consensus prediction.
 
 
 # In[ ]:
@@ -353,9 +403,9 @@ plt.show()
 
 
 false_positives = predictions[predictions['true']==0]
-false_positives = false_positives[false_positives['1s'] > 5].sort_values(by='1s', ascending=False)['1s']
+false_positives = false_positives[false_positives['1s'] > 5]['1s']
 
-fp_result = pd.concat([false_positives, X_orig], axis=1, join='inner')
+fp_result = pd.concat([false_positives, X_i], axis=1, join='inner')
 fp_result.head()
 
 
@@ -379,13 +429,15 @@ fp_result_weighted_trimmed.head()
 # In[ ]:
 
 
-fig, ax = plt.subplots(figsize=(18,18))
+fig, ax = plt.subplots(figsize=(18,50))
 im = ax.imshow(fp_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fp_result_weighted_trimmed.columns[1:])))
 ax.set_yticks(np.arange(len(fp_result_weighted_trimmed.index)))
 ax.set_xticklabels(fp_result_weighted_trimmed.columns[1:])
-ax.set_yticklabels(fp_result_weighted_trimmed.index)
+labels = X_orig.loc[:,'school_name'].reindex([fp_result_weighted_trimmed.index])
+ax.set_yticklabels(labels)
+#ax.set_yticklabels(fp_result_weighted_trimmed.index)
 plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
 
 for i in range(len(fp_result_weighted_trimmed.index)):
@@ -399,8 +451,7 @@ plt.show()
 
 
 false_negatives = predictions[predictions['true']==1]
-false_negatives = false_negatives[false_negatives['0s'] > 5].sort_values(by='0s', ascending=False)['0s']
-false_negatives
+false_negatives = false_negatives[false_negatives['0s'] > 5]['0s']
 
 fn_result = pd.concat([false_negatives, X_i], axis=1, join='inner')
 fn_result.head()
@@ -425,13 +476,15 @@ fn_result_weighted_trimmed.head()
 # In[ ]:
 
 
-fig, ax = plt.subplots(figsize=(18,18))
+fig, ax = plt.subplots(figsize=(18,50))
 im = ax.imshow(fn_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fn_result_weighted_trimmed.columns[1:])))
 ax.set_yticks(np.arange(len(fn_result_weighted_trimmed.index)))
 ax.set_xticklabels(fn_result_weighted_trimmed.columns[1:])
-ax.set_yticklabels(fn_result_weighted_trimmed.index)
+labels = X_orig.loc[:,'school_name'].reindex([fn_result_weighted_trimmed.index])
+ax.set_yticklabels(labels)
+#ax.set_yticklabels(fn_result_weighted_trimmed.index)
 plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
 
 for i in range(len(fn_result_weighted_trimmed.index)):
@@ -479,44 +532,4 @@ df_final.insert(0, 'rank', range(1,df_final.shape[0]+1))
 # Write to CSV
 df_final.to_csv('results/results.logreg.csv')
 df_final
-
-
-# In[ ]:
-
-
-# DEPRECATED METHOD
-'''
-# Just the columns of interest
-fp_features = ['1s',
-              'dbn',
-              'school_name',
-              'grade_7_enrollment',
-              'num_shsat_test_takers']
-# Convert the percent columns to proper floats
-pct_features = ['pct_test_takers',
-               'percent_black__hispanic']
-df_pct = np.multiply(fp_result[pct_features], .01)
-# Merge these seven columns to one DataFram
-df_false_positives = pd.concat([fp_result[fp_features], df_pct], axis=1)
-
-# Determine the number of test takers this school would have needed to meet the median percentage of high_registrations
-median_pct = np.median(X_orig[y==1]['pct_test_takers'])/100
-predicted_test_takers = np.multiply(df_false_positives['grade_7_enrollment'], median_pct)
-
-# Subtract the number of actual test takers from the hypothetical minimum number
-delta = predicted_test_takers - df_false_positives['num_shsat_test_takers']
-
-# Multiply the delta by the minority percentage of the school to determine how many minority students did not take the test
-minority_delta = np.round(np.multiply(delta, df_false_positives['percent_black__hispanic']), 0)
-
-# Add this number to the dataframe, sort descending, and filter to schools with more than five minority students
-df_false_positives['minority_delta'] = minority_delta
-df_false_positives = df_false_positives[df_false_positives['minority_delta'] > 5] \
-                    .sort_values(by='minority_delta', ascending=False)
-# Create a rank order column
-df_false_positives.insert(0, 'rank', range(1,df_false_positives.shape[0]+1))
-# Write to CSV
-df_false_positives.to_csv('results/results.logreg.csv')
-df_false_positives
-'''
 
