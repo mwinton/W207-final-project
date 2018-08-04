@@ -195,10 +195,10 @@ estimator = GridSearchCV(pipeline,
 estimator.fit(perf_train_data_nonull, y)
 
 best_pca_components = estimator.best_params_['pca__n_components']
-best_k_neighbors = estimator.best_params_['kneighborsclassifier__n_neighbors']
+best_k = estimator.best_params_['kneighborsclassifier__n_neighbors']
 print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" % 
       (best_pca_components,
-       best_k_neighbors, 
+       best_k,
        estimator.best_score_))
 
 
@@ -213,9 +213,9 @@ print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" %
 
 pipeline = make_pipeline(StandardScaler(),
                          PCA(n_components=best_pca_components, random_state=207),
-                         KNeighborsClassifier(n_neighbors=best_k_neighbors))
+                         KNeighborsClassifier(n_neighbors=best_k))
 
-fp_df = util.run_model_get_false_positives(pipeline, train_data, test_data,
+fp_df = util.run_model_get_ordered_predictions(pipeline, train_data, test_data,
                                       perf_train_data_nonull, perf_test_data_nonull,
                                       train_labels, test_labels)
 

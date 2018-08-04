@@ -216,11 +216,13 @@ def print_cv_results(cv_scores):
            cv_f1.mean() + 1.96 * cv_f1.std()))
 
 
-def run_model_get_false_positives(pipeline,
-                                  train_orig, test_orig,
-                                  train_best, test_best,
-                                  train_labels, test_labels):
-    """Function that runs a model and returns false positives"""
+def run_model_get_ordered_predictions(pipeline,
+                                      train_orig, test_orig,
+                                      train_best, test_best,
+                                      train_labels, test_labels):
+    """Function that runs a model and returns results that represent
+    an ordering over schools that are most likely to have high registrations
+    and schools that are least likely to have high registrations."""
     # recombine train and test data into an aggregate dataset
     X_orig = pd.concat([train_orig, test_orig], sort=True)  # including all columns (need for display purposes)
     X_best = pd.concat([train_best, test_best], sort=True)  # only columns from best model
