@@ -14,7 +14,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
-# In[2]:
+# In[1]:
 
 
 # import necessary libraries
@@ -39,10 +39,11 @@ import util
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
 
+k_folds = 5
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[3]:
+# In[2]:
 
 
 # Get train-test split
@@ -59,7 +60,7 @@ train_data.head()
 # 
 # We will ignore some categorical variables and variables that are highly correlated with outcome variable.
 
-# In[4]:
+# In[3]:
 
 
 drop_cols = [
@@ -95,7 +96,7 @@ perf_test_data_nonull = perf_test_data.fillna(perf_test_data.mean())
 # 
 # We will now run KNN prediction on the dataset, with the default K value (=5).
 
-# In[5]:
+# In[4]:
 
 
 scaler = MinMaxScaler().fit(perf_train_data_nonull)
@@ -104,14 +105,13 @@ y = train_labels
 clf = KNeighborsClassifier()
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
-k_folds = 5
 cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy', 'f1'])
 util.print_cv_results(cv_scores)
 
 
 # We get accuracy of 82% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[6]:
+# In[5]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
@@ -119,12 +119,13 @@ pipeline = make_pipeline(MinMaxScaler(),
 n_neighbors = list(range(1, 15))
 estimator = GridSearchCV(pipeline,
                         dict(kneighborsclassifier__n_neighbors=n_neighbors),
-                        cv=5, n_jobs=2, scoring='f1')
+                        cv=k_folds, n_jobs=-1, scoring='f1')
 estimator.fit(perf_train_data_nonull, y)
 
 print("Best no. of neighbors: %d (with best f1: %.3f)" % 
       (estimator.best_params_['kneighborsclassifier__n_neighbors'], 
        estimator.best_score_))
+best_k = estimator.best_params_['kneighborsclassifier__n_neighbors']
 
 
 # The best F1 score is 0.59 at $k=5$.
@@ -133,37 +134,28 @@ print("Best no. of neighbors: %d (with best f1: %.3f)" %
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[7]:
+# In[6]:
 
 
 pipeline = make_pipeline(MinMaxScaler(), 
                          SelectFromModel(ExtraTreesClassifier(random_state=207)))
 pipeline.fit_transform(perf_train_data_nonull, y)
 selected_features = pipeline.steps[1][1].get_support()
-perf_train_data_nonull.columns[selected_features]
+selected_cols = perf_train_data_nonull.columns[selected_features].values.tolist()
+print("Selected feature columns: %s" % selected_cols)
 
 
-# In[9]:
+# In[7]:
 
 
-perf_train_data_nonull_sel_cols = ['percent_ell', 'percent_hispanic', 'percent_black__hispanic',
-       'student_attendance_rate', 'percent_of_students_chronically_absent',
-       'effective_school_leadership_rating', 'student_achievement_rating',
-       'average_ela_proficiency', 'average_math_proficiency',
-       'grade_7_ela_4s_all_students',
-       'grade_7_ela_4s_economically_disadvantaged',
-       'grade_7_math_4s_all_students',
-       'grade_7_math_4s_economically_disadvantaged',
-       'number_of_students_science', 'average_class_size_english',
-       'average_class_size_math', 'school_pupil_teacher_ratio']
+perf_train_data_nonull_sel_cols = selected_cols
 perf_train_data_nonull_sel = perf_train_data_nonull[perf_train_data_nonull_sel_cols]
 scaler = MinMaxScaler().fit(perf_train_data_nonull_sel)
 rescaledX = scaler.transform(perf_train_data_nonull_sel)
 y = train_labels
-clf = KNeighborsClassifier(n_neighbors=5)
+clf = KNeighborsClassifier(n_neighbors=best_k)
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
-k_folds = 5
 cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy','f1'])
 util.print_cv_results(cv_scores)
 
@@ -176,7 +168,7 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[10]:
+# In[8]:
 
 
 # generate plot of variance explained vs # principale components
@@ -187,7 +179,7 @@ util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[11]:
+# In[9]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -199,12 +191,14 @@ n_neighbors = list(range(1, 15))
 estimator = GridSearchCV(pipeline,
                         dict(pca__n_components=n_components,
                              kneighborsclassifier__n_neighbors=n_neighbors),
-                        cv=5, scoring='f1')
+                             cv=k_folds, scoring='f1')
 estimator.fit(perf_train_data_nonull, y)
 
+best_pca_components = estimator.best_params_['pca__n_components']
+best_k_neighbors = estimator.best_params_['kneighborsclassifier__n_neighbors']
 print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" % 
-      (estimator.best_params_['pca__n_components'],
-       estimator.best_params_['kneighborsclassifier__n_neighbors'], 
+      (best_pca_components,
+       best_k_neighbors, 
        estimator.best_score_))
 
 
@@ -214,14 +208,12 @@ print("Best no. of PCA components: %d, neighbors: %d (with best f1: %.3f)" %
 # 
 # Let us look at what schools the model classified as positive, but were actually negative.  These are the schools we should target, because the model thinks they should have high SHSAT registrations, but in reality they do not.
 
-# In[15]:
+# In[10]:
 
 
-n_pca = 8
-n_neighbors = 7
 pipeline = make_pipeline(StandardScaler(),
-                         PCA(n_components=n_pca, random_state=207),
-                         KNeighborsClassifier(n_neighbors=n_neighbors))
+                         PCA(n_components=best_pca_components, random_state=207),
+                         KNeighborsClassifier(n_neighbors=best_k_neighbors))
 
 fp_df = util.run_model_get_false_positives(pipeline, train_data, test_data,
                                       perf_train_data_nonull, perf_test_data_nonull,
@@ -230,13 +222,13 @@ fp_df = util.run_model_get_false_positives(pipeline, train_data, test_data,
 
 # Now that we have the false positives, we will obtain a ranking of the schools that we can provide to PASSNYC.
 
-# In[16]:
+# In[11]:
 
 
 df_passnyc = util.create_passnyc_list(fp_df, train_data, test_data,
                                  train_labels, test_labels)
 # Write to CSV
-#df_passnyc.to_csv('results/results.neuralnet.csv')
+#df_passnyc.to_csv('results/results.knn.csv')
 
 df_passnyc
 

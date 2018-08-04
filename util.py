@@ -218,17 +218,13 @@ def print_cv_results(cv_scores):
 
 def run_model_get_false_positives(pipeline,
                                   train_orig, test_orig,
-                                  train_model, test_model,
+                                  train_best, test_best,
                                   train_labels, test_labels):
     """Function that runs a model and returns false positives"""
     # recombine train and test data into an aggregate dataset
     X_orig = pd.concat([train_orig, test_orig], sort=True)  # including all columns (need for display purposes)
-    X_best = pd.concat([train_model, test_model], sort=True)  # only columns from best model
+    X_best = pd.concat([train_best, test_best], sort=True)  # only columns from best model
     y = np.concatenate((train_labels, test_labels))
-    X_best_npa = np.array(X_best)
-    y_npa = np.array(y)
-    X_pos = X_best[y == 1]
-    X_neg = X_best[y == 0]
 
     # Run k-fold cross-validation with 5 folds 10 times, which means every school is predicted 10 times.
     folds = 5
@@ -242,9 +238,9 @@ def run_model_get_false_positives(pipeline,
     predictions = pd.DataFrame(index=X_best.index, columns=fold_list)
 
     counter = 1
-    for train, test in rskf.split(X_best_npa, y_npa):
-        pipeline.fit(X_best_npa[train], y_npa[train])
-        predicted_labels = pipeline.predict(X_best_npa[test])
+    for train, test in rskf.split(X_best, y):
+        pipeline.fit(X_best.iloc[train, ], y[train, ])
+        predicted_labels = pipeline.predict(X_best.iloc[test, ])
         predictions.iloc[test, counter - 1] = predicted_labels
         counter += 1
 
@@ -253,24 +249,18 @@ def run_model_get_false_positives(pipeline,
     predictions['0s'] = (predictions.iloc[:, :50] == 0).sum(axis=1)
     predictions['true'] = y
 
-    # Create a table of raw results, the vote for truth
-    X_predicted = pd.concat([X_best, predictions['1s'], predictions['0s'],
+    # Create a table of all features along with the number of votes each received and the true value
+    X_predicted = pd.concat([X_orig, predictions['1s'], predictions['0s'],
                              pd.DataFrame(y)], axis=1, join_axes=[X_best.index])
+    # Rename the y columns to be more descriptive
+    X_predicted.rename(columns={0: "high_registrations"}, inplace=True)
+    # Sort by number of votes, most votes for 1 at the top and most votes for 0 at the bottom
     X_predicted = X_predicted.sort_values(by=['1s', '0s'], ascending=[False, True])
 
-    # list all false positives that had at least 5/50 votes for the positive label
-    true_negatives = predictions[predictions['true'] == 0]
-    false_positives = true_negatives[true_negatives['1s'] > 5] \
-        .sort_values(by='1s', ascending=False)['1s']
-
-    # join back to full dataset for all columns (including those previously dropped)
-    fp_result = pd.concat([false_positives, X_orig], axis=1, join='inner')
-    # XXX: Deepak: Review me!
-    fp_result = fp_result[(fp_result['selective'] == 0) & (fp_result['gifted'] == 0)]
-    return fp_result
+    return X_predicted
 
 
-def create_passnyc_list(fp_df, train_orig, test_orig, train_labels, test_labels):
+def create_passnyc_list(X_predicted, train_orig, test_orig, train_labels, test_labels):
     """Function that takes the false positives and returns a rank order dataframe"""
 
     # Retrain only the columns of interest for PASSNYC prioritization
@@ -283,13 +273,14 @@ def create_passnyc_list(fp_df, train_orig, test_orig, train_labels, test_labels)
                   'pct_test_takers',
                   'percent_black__hispanic'
                   ]
-    df_passnyc = fp_df[fp_features]
+    df_passnyc = X_predicted[fp_features]
+
     X_orig = pd.concat([train_orig, test_orig], sort=True)  # including all columns (need for display purposes)
     y = np.concatenate((train_labels, test_labels))
 
     # Determine the number of test takers this school would have needed to meet
     #   the median percentage of high_registrations
-    median_pct = np.median(X_orig[y==1]['pct_test_takers']) / 100
+    median_pct = np.median(X_orig[y == 1]['pct_test_takers']) / 100
     target_test_takers = np.multiply(df_passnyc['grade_7_enrollment'], median_pct)
 
     # Subtract the number of actual test takers from the hypothetical minimum number
@@ -297,13 +288,17 @@ def create_passnyc_list(fp_df, train_orig, test_orig, train_labels, test_labels)
 
     # Multiply the delta by the minority percentage of the school to determine how many minority
     #   students did not take the test
-    minority_delta = np.multiply(delta, df_passnyc['percent_black__hispanic'] / 100).astype(int)
+    minority_delta = np.round(np.multiply(delta, df_passnyc['percent_black__hispanic'] / 100), 0).astype(int)
+    df_passnyc = df_passnyc.assign(minority_delta=minority_delta)
 
-    # Add this number to the dataframe, sort descending, and filter to schools with more than five minority students
-    df_passnyc['minority_delta'] = minority_delta
-    df_passnyc = df_passnyc[df_passnyc['minority_delta'] > 5].sort_values(by='minority_delta', ascending=False)
+    # Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score'
+    df_passnyc = df_passnyc.assign(score=np.multiply(df_passnyc['minority_delta'], df_passnyc['1s'] / 10))
+
+    # sort descending, and filter to schools with more than five minority students
+    df_passnyc = df_passnyc.sort_values(by='score', ascending=False)
 
     # Create a rank order column
-    df_passnyc.insert(0, 'rank', range(1, df_passnyc.shape[0]+1))
+    df_passnyc.insert(0, 'rank', range(1, df_passnyc.shape[0] + 1))
+
     return df_passnyc
 
