@@ -429,7 +429,7 @@ fp_result_weighted_trimmed.head()
 # In[ ]:
 
 
-fig, ax = plt.subplots(figsize=(18,50))
+fig, ax = plt.subplots(figsize=(18,20))
 im = ax.imshow(fp_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fp_result_weighted_trimmed.columns[1:])))
@@ -476,7 +476,7 @@ fn_result_weighted_trimmed.head()
 # In[ ]:
 
 
-fig, ax = plt.subplots(figsize=(18,50))
+fig, ax = plt.subplots(figsize=(18,20))
 im = ax.imshow(fn_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fn_result_weighted_trimmed.columns[1:])))
