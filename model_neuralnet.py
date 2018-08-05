@@ -385,7 +385,7 @@ df_passnyc = util.create_passnyc_list(predictions, train_data, test_data, train_
 df_passnyc.to_csv('results/results.neuralnet.csv')
 
 # Display results
-df_passnyc
+df_passnyc.head()
 
 
 # ## Post-hoc comparison of prioritization score vs. economic need index
