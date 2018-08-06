@@ -106,8 +106,7 @@ Image(filename='plots/corr_matrix_boroughs.png')
 # 
 # Model | CV Accuracy | (95% CI) | CV F1 | (95% CI) | Test Set Accuracy | Test Set F1
 # :---|:---:|:---:|:---:|:---:|:---:|:---:
-# K-Nearest Neighbors (Full Model) | 0.849 | (0.721, 0.976) | 0.637 | (0.328, 0.946) | 0.87 | 0.73
-# K-Nearest Neighbors (Top n Features) | 0.841 | (0.756, 0.926) | 0.586 | (0.376, 0.795) | 0.84 | 0.65
+# K-Nearest Neighbors | 0.849 | (0.721, 0.976) | 0.637 | (0.328, 0.946) | 0.87 | 0.73
 # Random Forest | 0.846 | (0.766, 0.927) | 0.687 | (0.549, 0.825) | 0.85 | 0.71
 # Logistic Regression | 0.846 | (0.771, 0.921) | 0.660 | (0.467, 0.853) | 0.88 | 0.72
 # Mulilayer Perceptron NN | 0.827 | (0.727. 0.928) | 0.633 | (0.382, 0.884) | 0.81 | 0.80

@@ -90,24 +90,17 @@ perf_test_data_nonull = perf_test_data.fillna(perf_test_data.mean())
 # 
 # ## K-Nearest Neighbors Classification
 # 
-# #### Default run
-# We will now run KNN prediction on the dataset, with the default K value (=5).
-
-# In[4]:
-
-
-scaler = StandardScaler().fit(perf_train_data_nonull)
-rescaledX = scaler.transform(perf_train_data_nonull)
-y = train_labels
-clf = KNeighborsClassifier()
-
-# Do k-fold cross-validation, collecting both "test" accuracy and F1 
-cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy', 'f1'])
-util.print_cv_results(cv_scores)
-
+# We will now run KNN on the dataset.  We will run it in three ways:
+# 
+# 1. Run with all features except for the dropped ones above
+# 2. Run with a few features, based on a feature selection algorithm
+# 3. Run PCA, then run with all features except for the dropped ones above
+# 
+# ### 1/3. KNN with most features
+# We will now run KNN prediction on the dataset.  We will use grid search to get the best value for the hyper-parameter $k$.
 
 # #### Searching for best $k$
-# We get accuracy of 82% and F1 score of 0.58.  Let us experiment with various values of $k$ to see which gives the best results.
+# Let us experiment with various values of $k$ to see which gives the best results.
 
 # In[5]:
 
@@ -120,8 +113,8 @@ estimator = GridSearchCV(pipeline,
                         cv=k_folds, n_jobs=-1, scoring='f1')
 estimator.fit(perf_train_data_nonull, y)
 
-best_k = estimator.best_params_['kneighborsclassifier__n_neighbors']
-print("Best no. of neighbors: %d" % best_k)
+best_k_all_features = estimator.best_params_['kneighborsclassifier__n_neighbors']
+print("Best no. of neighbors: %d" % best_k_all_features)
 
 
 # The best value for number of neighbors is $k=3$.  Let us get the scores for this value of $k$.
@@ -130,38 +123,20 @@ print("Best no. of neighbors: %d" % best_k)
 
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
-clf = KNeighborsClassifier(n_neighbors=best_k)
+clf = KNeighborsClassifier(n_neighbors=best_k_all_features)
 cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy', 'f1'])
 util.print_cv_results(cv_scores)
 
 
-# We get accuracy of 85% and F1 of 0.64.  Let us run the above KNN model on the test set.
-
-# In[7]:
-
-
-pipeline = make_pipeline(StandardScaler(), 
-                         KNeighborsClassifier(n_neighbors=best_k))
-pipeline.fit(perf_train_data_nonull, train_labels)
-predicted_labels = pipeline.predict(perf_test_data_nonull)
-knn_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
-knn_score_f1 = metrics.f1_score(test_labels, predicted_labels)
-
-print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
-     .format(knn_score_accuracy*100, knn_score_f1))
-
-
-# We can see accuracy of 87% on test set, and F1 of 0.73.
-# 
-# We will later report the above two values: one for cross-validation, and another for test set.
+# We get accuracy of 85% and F1 of 0.64.
 
 # *** 
 # 
-# ### KNN with select features
+# ### 2/3. KNN with select features
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[8]:
+# In[7]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -176,7 +151,7 @@ print("Selected feature columns: %s" % selected_cols)
 # 
 # Let us also find the best number of neighbors for this subset of features.
 
-# In[9]:
+# In[8]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -190,52 +165,35 @@ perf_train_data_nonull_sel_cols = selected_cols
 perf_train_data_nonull_sel = perf_train_data_nonull[perf_train_data_nonull_sel_cols]
 estimator.fit(perf_train_data_nonull_sel, y)
 
-best_k = estimator.best_params_['kneighborsclassifier__n_neighbors']
-print("Best no. of neighbors: %d" % best_k)
+best_k_some_features = estimator.best_params_['kneighborsclassifier__n_neighbors']
+print("Best no. of neighbors: %d" % best_k_some_features)
 
 
 # We will use this to run cross-validation on the model.
 
-# In[10]:
+# In[9]:
 
 
 scaler = StandardScaler().fit(perf_train_data_nonull_sel)
 rescaledX_sel = scaler.transform(perf_train_data_nonull_sel)
-clf = KNeighborsClassifier(n_neighbors=best_k)
+clf = KNeighborsClassifier(n_neighbors=best_k_some_features)
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
 cv_scores = cross_validate(clf, rescaledX_sel, y, cv=k_folds, scoring=['accuracy','f1'])
 util.print_cv_results(cv_scores)
 
 
-# F1 score falls a little to 0.59.  Let us look at how it performs on test set.
-
-# In[11]:
-
-
-pipeline = make_pipeline(StandardScaler(), 
-                         KNeighborsClassifier(n_neighbors=best_k))
-pipeline.fit(perf_train_data_nonull_sel, y)
-perf_test_data_nonull_sel = perf_test_data_nonull[perf_train_data_nonull_sel_cols]
-predicted_labels = pipeline.predict(perf_test_data_nonull_sel)
-knn_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
-knn_score_f1 = metrics.f1_score(test_labels, predicted_labels)
-
-print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
-     .format(knn_score_accuracy*100, knn_score_f1))
-
-
-# We see that the model does not do well on test set either.  Nevertheless, we will report this as a second run.
+# F1 score falls a little to 0.59.
 
 # ***
 # 
-# ### KNN with reduced dimensions
+# ### 3/3. KNN with reduced dimensions
 # 
 # We will next attempt to reduce dimensions via PCA, followed by KNN.
 # 
 # First, we will attempt to find the best number of components.
 
-# In[12]:
+# In[10]:
 
 
 # generate plot of variance explained vs # principale components
@@ -248,7 +206,7 @@ util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[13]:
+# In[11]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -264,57 +222,57 @@ estimator = GridSearchCV(pipeline,
 estimator.fit(perf_train_data_nonull, y)
 
 best_pca_components = estimator.best_params_['pca__n_components']
-best_k = estimator.best_params_['kneighborsclassifier__n_neighbors']
+best_k_with_pca = estimator.best_params_['kneighborsclassifier__n_neighbors']
 print("Best no. of PCA components: %d, neighbors: %d" % 
       (best_pca_components,
-       best_k))
+       best_k_with_pca))
 
 
 # We find that PCA with 8 components, followed by KNN with 7 neighbors is the best combination.
 
-# In[14]:
+# In[12]:
 
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
 pipeline = make_pipeline(StandardScaler(), 
                          PCA(random_state=207, n_components=best_pca_components),
-                         KNeighborsClassifier(n_neighbors=best_k))
+                         KNeighborsClassifier(n_neighbors=best_k_with_pca))
 
 cv_scores = cross_validate(pipeline, perf_train_data_nonull, train_labels, cv=k_folds, scoring=['accuracy', 'f1'])
 util.print_cv_results(cv_scores)
 
 
-# With this combination, we get accuracy of 84% and F1 score of 0.63.  Let's run the above model on test set and determine our model scores.
+# With this combination, we get accuracy of 84% and F1 score of 0.63.
 
-# In[15]:
-
-
-pipeline = make_pipeline(StandardScaler(), 
-                         PCA(random_state=207, n_components=best_pca_components),
-                         KNeighborsClassifier(n_neighbors=best_k))
-pipeline.fit(perf_train_data_nonull, train_labels)
-predicted_labels = pipeline.predict(perf_test_data_nonull)
-lr_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
-lr_score_f1 = metrics.f1_score(test_labels, predicted_labels)
-
-print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
-     .format(lr_score_accuracy*100, lr_score_f1))
-
-
-# We get accuracy of 88% and a rather good F1 score of 0.73.  The accuracy improves a tiny bit on test set, but falls a bit in 5-fold cross-validation.
-# 
 # Let us summarize our three runs of KNN so far.
 # 
 # ***
 # 
 # ### Summary
 # 
-# Model | CV Accuracy | (95% CI) | CV F1 | (95% CI) | Test Set Accuracy | Test Set F1
-# :---|:---:|:---:|:---:|:---:|:---:|:---:
-# K-Nearest Neighbors (Full Model) | 0.849 | (0.721, 0.976) | 0.637 | (0.328, 0.946) | 0.87 | 0.73
-# K-Nearest Neighbors (Top n Features) | 0.841 | (0.756, 0.926) | 0.586 | (0.376, 0.795) | 0.84 | 0.65
-# K-Nearest Neighbors (PCA, most features) | 0.841 | (0.714, 0.967) | 0.630 | (0.357, 0.903) | 0.88 | 0.73
+# Model | CV Accuracy | (95% CI) | CV F1 | (95% CI)
+# :---|:---:|:---:|:---:|:---:
+# K-Nearest Neighbors (Most features) | 0.849 | (0.721, 0.976) | 0.637 | (0.328, 0.946)
+# K-Nearest Neighbors (Top n Features) | 0.841 | (0.756, 0.926) | 0.586 | (0.376, 0.795)
+# K-Nearest Neighbors (PCA, most features) | 0.841 | (0.714, 0.967) | 0.630 | (0.357, 0.903)
 # 
+# The first model gives the best F1.  We will now use it to run on the test set and also for the final table.
+
+# In[13]:
+
+
+pipeline = make_pipeline(StandardScaler(), 
+                         KNeighborsClassifier(n_neighbors=best_k_all_features))
+pipeline.fit(perf_train_data_nonull, train_labels)
+predicted_labels = pipeline.predict(perf_test_data_nonull)
+knn_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
+knn_score_f1 = metrics.f1_score(test_labels, predicted_labels)
+
+print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
+     .format(knn_score_accuracy*100, knn_score_f1))
+
+
+# On test set, we get 87% accuracy, and good F1 score at 0.73.
 
 # ***
 # 
@@ -324,12 +282,11 @@ print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of 
 # 
 # We will use the last model run above (PCA, most features) to generate the school list.
 
-# In[16]:
+# In[14]:
 
 
 pipeline = make_pipeline(StandardScaler(),
-                         PCA(n_components=best_pca_components, random_state=207),
-                         KNeighborsClassifier(n_neighbors=best_k))
+                         KNeighborsClassifier(n_neighbors=best_k_all_features))
 
 fp_df = util.run_model_get_ordered_predictions(pipeline, train_data, test_data,
                                                perf_train_data_nonull, perf_test_data_nonull,
@@ -338,7 +295,7 @@ fp_df = util.run_model_get_ordered_predictions(pipeline, train_data, test_data,
 
 # Now that we have the false positives, we will obtain a ranking of the schools that we can provide to PASSNYC.
 
-# In[17]:
+# In[15]:
 
 
 df_passnyc = util.create_passnyc_list(fp_df, train_data, test_data,
