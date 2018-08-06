@@ -7,7 +7,7 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[3]:
+# In[25]:
 
 
 # import necessary libraries
@@ -37,7 +37,7 @@ get_ipython().magic('matplotlib inline')
 # 
 # Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
 
-# In[4]:
+# In[26]:
 
 
 train_data, test_data, train_labels, test_labels = util.read_data(do_imputation=True)
@@ -47,7 +47,7 @@ print(train_labels.shape)
 
 # > **KEY OBSERVATION**: a hypothetical model that is hard-coded to predict a `negative` result every time would be ~77% accurate.  So, we should not accept any machine-learned model with a lower accuracy than that.  This also suggests that F1 score is a better metric to assess our work since it incorporates both precision and recall.
 
-# In[5]:
+# In[27]:
 
 
 train_data.info()
@@ -58,7 +58,7 @@ train_data.head(10)
 
 # ## Create a function to estimate MLP models and report results
 
-# In[6]:
+# In[28]:
 
 
 def estimate_mlp(train_data, train_labels, n_pca=None,
@@ -98,7 +98,7 @@ def estimate_mlp(train_data, train_labels, n_pca=None,
 # ## Train and fit a "naive" model
 # For the first model, we'll use all features except SHSAT-related features because they are too correlated with the way we calculated the label.  We'll also drop `school_income_estimate` because it's missing for ~2/3 of the schools.  We drop zip code (too granular to have many schools per zip) in favor of the indicator variables `in_[borough]`.
 
-# In[7]:
+# In[29]:
 
 
 drop_cols = ['dbn',
@@ -121,7 +121,7 @@ train_data_naive.head()
 # ## One Hot Encode the categorical explanatory variables
 # Columns such as zip code and school district ID, which are integers should not be fed into an ML model as integers.  Instead, we would need to treat them as factors and perform one-hot encoding.  Since we have already removed zip code from our dataframe (in favor of boroughs), we only need to one hot encode `district`.
 
-# In[8]:
+# In[30]:
 
 
 train_data_naive_ohe, test_data_naive_ohe = util.get_dummies(train_data_naive, test_data_naive,
@@ -132,7 +132,7 @@ train_data_naive_ohe.head()
 # ## Estimate the "naive" multilayer perceptron model
 # This first "naive" model uses all except for the SHSAT-related features, as described above.  We create a pipeline that will be used for k-fold cross-validation.  First, we scale the features, then estimate a multilayer perceptron neural network with 3 hidden layers, each with the same number of nodes as we have features.
 
-# In[9]:
+# In[31]:
 
 
 # discard return vals; only print results
@@ -142,7 +142,7 @@ train_data_naive_ohe.head()
 # ## Train a "naive" model without location (zip, borough, or district)
 # Next, we will remove the borough and district features and compare accuracy to the model that included one hot-encoded versions of the borough and district factors.
 
-# In[10]:
+# In[32]:
 
 
 drop_cols = ['dbn',
@@ -171,7 +171,7 @@ print(train_labels.shape)
 # ## Estimate the "naive" multilayer perceptron model without location
 # 
 
-# In[11]:
+# In[33]:
 
 
 # discard return vals; only print results
@@ -186,7 +186,7 @@ print(train_labels.shape)
 # ### Preprocess new X_train and X_test datasets
 # We will remove all explicitly demographic columns, as well as economic factors, borough, and zip code, which are likely highly correlated with demographics.
 
-# In[12]:
+# In[34]:
 
 
 # drop SHSAT-related columns
@@ -227,7 +227,7 @@ train_data_race_blind_ohe, test_data_race_blind_ohe =util.get_dummies(train_data
 # ## Estimate the "race blind" multilayer perceptron model
 # 
 
-# In[13]:
+# In[35]:
 
 
 # discard return vals; only print results
@@ -239,14 +239,14 @@ train_data_race_blind_ohe, test_data_race_blind_ohe =util.get_dummies(train_data
 # ## Experiment with dimensionality reduction via PCA
 # Since manual feature selection performed poorly, resulting in a confidence interval of F1 spanning from 0 to 1 in both cases, it doesn't seem to be a promising approach.  Next, we experiment with Principal Component Analysis for dimensionality reduction, starting with the "naive" set of columns.
 
-# In[14]:
+# In[36]:
 
 
 # Determine the number of principal components to achieve 90% explained variance
 n_pca = util.get_num_pcas(train_data_naive, var_explained=0.9)
 
 
-# In[15]:
+# In[37]:
 
 
 print('Using %d principal components' % (n_pca)) # currently n_pca=69
@@ -258,7 +258,7 @@ print('Using %d principal components' % (n_pca)) # currently n_pca=69
 # ## Use grid search to identify best set of hidden layer parameters
 # Since the usage of PCA seemed to improve our F1 score (and tighten its confidence interval), we will proceed to try to optimize the hidden layer parameters while using PCA.
 
-# In[16]:
+# In[38]:
 
 
 # Running grid search for different combinations of neural network parameters is slow.
@@ -315,7 +315,7 @@ except FileNotFoundError:
 grid_search_results.sort_values(by='F1', ascending=False)
 
 
-# In[17]:
+# In[39]:
 
 
 # put best grid search params into a varaiable
@@ -334,7 +334,7 @@ best_hl_params
 # 
 # > NOTE: This code was left commented out until after hyperparameter optimization was complete.  
 
-# In[18]:
+# In[40]:
 
 
 # set up pipeline with optimal parameters
@@ -360,7 +360,7 @@ print(classification_report(test_labels, test_predict))
 # ## Analyze false positives to make recommendations to PASSNYC
 # False positives are the schools that our model predicted to have a high SHSAT registration rate, but in reality they did not.  This suggests that they have a lot in common with the high registration schools, but for some reason fall short.  As a result, we believe these are good candidates for the PASSNYC organization to engage with, as investing in programs with these schools may be more highly to payoff with increase registration rates.  We will prioritize the schools based on features that align with the PASSNYC diversity-oriented mission.
 
-# In[23]:
+# In[41]:
 
 
 # build a pipeline with the best parameters
@@ -382,16 +382,16 @@ predictions = util.run_model_get_ordered_predictions(pipeline, train_data, test_
 df_passnyc = util.create_passnyc_list(predictions, train_data, test_data, train_labels, test_labels)
 
 # Write to CSV
-# df_passnyc.to_csv('results/results.neuralnet.csv')
+df_passnyc.to_csv('results/results.neuralnet.csv')
 
 # Display results
-df_passnyc
+df_passnyc.head()
 
 
 # ## Post-hoc comparison of prioritization score vs. economic need index
 # Even though economic need index was not an explicit factor in our post-classification prioritization scoring/ranking system, it is interesting to observe that there is some correlation:
 
-# In[24]:
+# In[42]:
 
 
 x = df_passnyc['score']
