@@ -191,15 +191,20 @@ X_i = pd.concat([train_data, test_data])
 y = np.concatenate((train_labels,test_labels))
 X_pos = X_i[y==1]
 X_neg = X_i[y==0]
-X_pos
 
+
+# The next step is to determine which coefficients are the most influential in determining the model's predictions.  These values can change quite a bit from one training set to the next, so to get a better sense of their expected value, we run a Repeated Stratified K-Fold validation, which runs five iterations of training the model on 4/5ths of the data, and then predicting the final 1/5th.  The combinations are then re-randomized, and the validation is run a total of 10 times.  This results in 50 calculations of the coefficients, which are then averaged and sorted to see which are the most influential in predicting a high registration school (positive coefficient), and which are the most influential in predicting a low-registration school (negative coefficient).
+# 
+# While we are running through all these trials, we also collect some other information:
+#  - The set of predictions, 1's or 0's, for the fifth of the model that gets tested on each iteration.  We use this as a measure of confidence in the model's predictions for the final recommendation.
+#  - The set of probabilities that each school will be a 1 or a 0, which are then averaged.  We use these to sort the schools by confidence later in the coefficient analysis.
 
 # In[ ]:
 
 
 from sklearn.model_selection import RepeatedStratifiedKFold
 
-# Run coefficient analysis on 100% of the data
+# Scale the full dataset and make numpy arrays of both the data and labels
 np_train_data = np.array(scaler.fit_transform(X_i))
 np_train_labels = y
 
@@ -209,7 +214,7 @@ repeats = 10
 rskf = RepeatedStratifiedKFold(n_splits=folds, n_repeats= repeats, random_state=207)
 fold_list = []
 
-# Build multiple dataframes from the results, with columns for each k-fold
+# Build multiple empty dataframes from the results, with columns for each k-fold
 for f in range(1, (folds*repeats)+1):
     fold_list.append('k{}'.format(f))
 # This contains the coefficients for every feature in every test
@@ -258,6 +263,8 @@ for c in top_features:
 plt.show()
 
 
+# Unsurprisingly, `average_math_proficiency` and `average_ela_proficiency` are both strong predictors of a school with high SHSAT registrations.  From conversations with New York parents, `percent_asian` is also unsurprising as that subpopulation has a reputation for aggressively pursuing registration in specialized high school.  The `grade_7_ela_4s_hispanic_or_latino` is a puzzle, particularly since `grade_7_math_4s_hispanic_or_latino` has a fairly high *negative* coefficient.  The distribution of all of these shows strong separation between the high-registration and low-registration groups.  `in_brooklyn` does not look like it should be as influential as it is, and `strong_family_community_ties_percent`, while making intuitive sense, looks basically like two normal distributions around the same mean with different standard deviations.
+
 # ### Most negatively-influential features
 
 # In[ ]:
@@ -273,8 +280,9 @@ for c in bottom_features:
 plt.show()
 
 
-# ## Examining Wrong Answers
+# The presence of `percent_black__hispanic` and `percent_hispanic` on this list reinforces PASSNYC's mission:  clearly the higher the share of these groups in a school, the less likely they are to have high test registrations.  The three dummy variables, `in_queens`, `in_staten` and `selective`, again don't look as influential as they are, while `percent_of_students_chronically_absent` makes both intuitive and visual sense as a predictor of registration level.
 # 
+# The fact that `grade_7_ela_4s_hispanic_or_latino` and `grade_7_math_4s_hispanic_or_latino` have nearly opposite coefficients warrants some further investigation.  If we simply plot the two groups against each other, we can see they both have strong correlation--albeit it is stronger among high registrants, perhaps reflecting a greater difference in language skills than math skills between the two groups.
 
 # In[ ]:
 
@@ -287,6 +295,8 @@ ax = sns.regplot(X_neg.grade_7_math_4s_hispanic_or_latino, X_neg.grade_7_ela_4s_
 ax.legend()
 
 
+# And if we plot a single-variable logistic regression for each of them against the target variable, we can see that they are, in fact, independently positive predictors.
+
 # In[ ]:
 
 
@@ -296,6 +306,10 @@ ax = sns.regplot(X_i.grade_7_ela_4s_hispanic_or_latino, y, logistic=True, label=
 ax.set_xlabel('Number of Students achieving a score of 4', fontsize=15)
 ax.legend()
 
+
+# It must be, therefore, that the bulk of the positive variation that `grade_7_math_4s_hispanic_or_latino` is covered by other variables (perhaps the ela scores), and all that is left in a multivariate logistic regression is the negative variation.
+# 
+# It is also interesting to plot the Asian and Hispanic demographics against each other independently.
 
 # In[ ]:
 
@@ -308,13 +322,9 @@ ax.set_xlabel('Percent of school either Asian or Hispanic', fontsize=15)
 ax.legend()
 
 
-# In[ ]:
-
-
-fig, ax = plt.subplots(figsize=(10,10))
-ax = sns.regplot(X_i.economic_need_index, y, logistic=True, label="Economic Need Index")
-ax.set_xlabel('Economic Need Index', fontsize=15)
-
+# The `percent_asian` has a steep curve, crossing the key .5 level at about 30%, while `percent_hispanic` starts at .5 and drops from there, suggesting that a school with *any* level of Hispanic population could benefit from PASSNYC's programs.
+# 
+# Another interesting plot is the `economic_need_index` distribution, which certainly **looks** predictive, however its average coefficient is very low, only -.04 (compared to -.1 or lower for the more influential features).  Like the Hispanic/Latino Math and ELA scores, this suggests that the variation contained in this feature has a high level of overlap with another feature--the correlation work in the EDA section of this analysis suggests that is probably `percent_black__hispanic`.
 
 # In[ ]:
 
@@ -327,28 +337,30 @@ ax.legend()
 
 
 # ### Heatmap Analysis
-# We can build a table of all the kfold predictions, and see the degree to which the model got each school right or wrong
+# While it is useful to see which variables carry the most influence in aggregate, it can be puzzling to understand why some schools make the cut and some don't.  To see the variation on a per-school level, we can build a heatmap that contextualizes each school's data, and shows which variables pull the school in one direction or another in the eyes of the model.
 
 # In[ ]:
 
 
+# Create columns in the predictions DataFrame to show the number of times the model voted each school a 1 or a zero
 predictions['1s'] = predictions.iloc[:,:50].sum(axis=1)
 predictions['0s'] = (predictions.iloc[:,:50]==0).sum(axis=1)
+# Add a column to show the true status of the school
 predictions['true'] = y
-
+# Add two more columns to show the average probability of each school being a 1 or a 0.  This gives us finer-grained visibility.
 predictions['1_prob'] = probs_1.mean(axis=1)
 predictions['0_prob'] = probs_0.mean(axis=1)
-predictions = predictions.sort_values(by=['1_prob'], ascending=False)
+# Sort table by the probability of school being predicted a 1
+predictions = predictions.sort_values(by='1_prob', ascending=False)
 
 
 # In[ ]:
 
 
 # Create a table of raw results, along with the number of votes each received and the true value
-X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], predictions['true'], predictions['1_prob']], axis=1, join_axes=[X_i.index])
-# Rename the y columns to be more descriptive
-X_predicted.rename(columns={0:"high_registrations"}, inplace=True)
-# Sort by number of votes, most votes for 1 at the top and most votes for 0 at the bottom
+X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], predictions['true'], 
+                         predictions['1_prob']], axis=1, join_axes=[X_i.index])
+# Sort by the probability that each school got a 
 X_predicted = X_predicted.sort_values(by=['1_prob'], ascending=False)
 
 # Normalize the values of the data columns
@@ -362,10 +374,6 @@ X_result_weighted.iloc[:, :-4] = weighted_values
 # Manually scale the vote columns to between -1.5 and 1.5 so they don't overweight the heatmap
 X_result_weighted.iloc[:, -4:-3] = predictions['1_prob']
 X_result_weighted.iloc[:, -3:-2] = predictions['0_prob']
-X_result_weighted = X_result_weighted.sort_values(by=['1s', '0s'], ascending=[False, True])
-#X_predicted = X_predicted.set_index(X_result_weighted.index)
-
-#X_result_weighted.iloc[:, -3:-1] = np.multiply(X_predicted.iloc[:,-3:-1], .15)
 
 # Check the variation in every column, and drop the columns that don't show much effect on the result
 drop_cols = ['1_prob']
@@ -376,9 +384,16 @@ X_result_weighted_trimmed = X_result_weighted.drop(drop_cols, axis=1)
 X_result_weighted_trimmed.head()
 
 
+# While the data for each school is clear enough to understand, it can be difficult to place each datapoint in context in the greater scheme of things.  Is that number a lot, or a little?  To aid in visualizing this, we constructed a heatmap that colors each datapoint according to the degree of influence it has in determining the model's final evaluation.
+# 
+# For this heatmap, the numbers in each cell are the raw data, but the coloration comes from the weighted and trimmed data generated above.  Each datapoint is normalized so they are all in the same basic range, and then they are multiplied by their average coefficient - effectively weighting them according to their influence in the model.  Columns in which there is very little variation are dropped for the sake of simplification, and everything is laid out in order of the likelihood that each school will be predicted to be a high-registration school.
+# 
+# Looking across the row for each school, you can see which columns pulled that school towards a `1` prediction by the degree to which the color is yellow, while columns colored blue to black pull the school towards a 0.  Looking down the columns, you can see some that are reliable predictors, and others that are more sporadic but hit with larger influence.
+
 # In[ ]:
 
 
+# Plot the results
 fig, ax = plt.subplots(figsize=(18,200))
 fig.patch.set_facecolor('white')
 im = ax.imshow(X_result_weighted_trimmed, cmap='viridis')
@@ -386,7 +401,7 @@ ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(X_result_weighted_trimmed.columns)))
 ax.set_yticks(np.arange(len(X_result_weighted_trimmed.index)))
 ax.set_xticklabels(X_result_weighted_trimmed.columns)
-labels = X_orig.loc[:,'school_name'].reindex([X_result_weighted_trimmed.index])
+labels = X_orig.loc[:,'school_name'].reindex(X_result_weighted_trimmed.index)
 ax.set_yticklabels(labels)
 plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
 
@@ -397,7 +412,8 @@ for i in range(len(X_result_weighted_trimmed.index)):
 plt.show()
 
 
-# It is perhaps most useful to examine the false positives - that is, schools that did NOT have high SHSAT registrations, but that the model thought SHOULD have.  We'll put the threshhold at 5 or more incorrect "true" classifications, and rank them in descending order (ie, the schools the model got most consistently wrong at the top).
+# ### False Positives
+# While the full dataset is useful, it is also very large, and it can be useful to examine the instances in which the model gets things wrong.  Particularly the false positives, which the model thinks **should** be high-registering, but for some reason are not.  These are likely to be the most fruitful schools for PASSNYC to consider in its evaluations of candidates.  For this list, the threshhold to be considered a false positive is more than 5 predictions of a `1` for the school in the Repeated Stratified K Fold validation.
 
 # In[ ]:
 
@@ -406,11 +422,6 @@ false_positives = predictions[predictions['true']==0]
 false_positives = false_positives[false_positives['1s'] > 5]['1s']
 
 fp_result = pd.concat([false_positives, X_i], axis=1, join='inner')
-fp_result.head()
-
-
-# In[ ]:
-
 
 scaled_fp_X = scaler.fit_transform(fp_result.iloc[:,1:])
 avg_coefs = np.array(coefs['avg'])
@@ -429,15 +440,15 @@ fp_result_weighted_trimmed.head()
 # In[ ]:
 
 
+# Plot the False Positives heatmap
 fig, ax = plt.subplots(figsize=(18,20))
 im = ax.imshow(fp_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
 ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fp_result_weighted_trimmed.columns[1:])))
 ax.set_yticks(np.arange(len(fp_result_weighted_trimmed.index)))
 ax.set_xticklabels(fp_result_weighted_trimmed.columns[1:])
-labels = X_orig.loc[:,'school_name'].reindex([fp_result_weighted_trimmed.index])
+labels = X_orig.loc[:,'school_name'].reindex(fp_result_weighted_trimmed.index)
 ax.set_yticklabels(labels)
-#ax.set_yticklabels(fp_result_weighted_trimmed.index)
 plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
 
 for i in range(len(fp_result_weighted_trimmed.index)):
@@ -447,6 +458,11 @@ for i in range(len(fp_result_weighted_trimmed.index)):
 plt.show()
 
 
+# While none of these schools surpassed 38% in their SHSAT registrations, the logistic regression model predicted that they would fairly reliably.  For some of them, it appears simply having a relatively high asian population was enough to persuade the model, whicle others had high enough academic scores that it seems unusual they didn't also have a lot of test-takers.  Some of them are quite puzzling - PS 99 Isaac Asimov, for example.  It is not clear why the model should think this school should have high registrations with its abysmal absenteeism, but the nuances of the model's predictions are not always clear.
+
+# ### False Negatives
+# Just as it can be helpful to see where the model went wrong in predicting high-registration schools, it can be instructive to see the schools that it thinks are low-registering, but are not.
+
 # In[ ]:
 
 
@@ -454,11 +470,6 @@ false_negatives = predictions[predictions['true']==1]
 false_negatives = false_negatives[false_negatives['0s'] > 5]['0s']
 
 fn_result = pd.concat([false_negatives, X_i], axis=1, join='inner')
-fn_result.head()
-
-
-# In[ ]:
-
 
 scaled_fn_X = scaler.fit_transform(fn_result.iloc[:,1:])
 weighted_values = np.multiply(scaled_fn_X, avg_coefs)
@@ -482,7 +493,7 @@ ax.xaxis.tick_top()
 ax.set_xticks(np.arange(len(fn_result_weighted_trimmed.columns[1:])))
 ax.set_yticks(np.arange(len(fn_result_weighted_trimmed.index)))
 ax.set_xticklabels(fn_result_weighted_trimmed.columns[1:])
-labels = X_orig.loc[:,'school_name'].reindex([fn_result_weighted_trimmed.index])
+labels = X_orig.loc[:,'school_name'].reindex(fn_result_weighted_trimmed.index)
 ax.set_yticklabels(labels)
 #ax.set_yticklabels(fn_result_weighted_trimmed.index)
 plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
@@ -494,7 +505,10 @@ for i in range(len(fn_result_weighted_trimmed.index)):
 plt.show()
 
 
+# As before, there some standouts that can cause head-scratching.  East Side Middle School, for example, has all the hallmarks of a high-registering school with its stellar academic scores (and, remember, it is).  However it appears the combination of a handful of high-performing Native Americans and the fact that it is a selective school were enough to relegate it to low-registration, at least most of the time.  Meanwhile, there is nothing in the Urban Assembly Unison School's numbers to explain why it is, in fact, a high-registration school, except maybe its `strong_family_community_ties_percent` score.  But perhaps there is a force within the school that compels students to take the test that is not reflected in the data--a zealous teacher or administrator or parent group, perhaps.  It might be useful for PASSNYC to talk to some of these schools, to see how it is that they manage a high registration rate in apparent contravention of the data.  They might have some useful wisdom to impart.
+
 # ## Final ranking for PASSNYC
+# In accordance with the other models in this analysis, we undertake a final evaluation of the schools to determine which have the highest opportunity for engagement with a black and/or hispanic population, and which the model considers to have the highest potential to be high-registration schools.  We write the results to a CSV file for final assembly and reporting.
 
 # In[ ]:
 
