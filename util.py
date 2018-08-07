@@ -296,10 +296,8 @@ def create_passnyc_list(X_predicted, train_orig, test_orig, train_labels, test_l
     # Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score'
     df_passnyc = df_passnyc.assign(score=np.multiply(df_passnyc['minority_delta'], df_passnyc['1s'] / 10))
 
-    # sort descending, and filter to schools with more than five minority students
+    # sort descending and create a rank order column
     df_passnyc = df_passnyc.sort_values(by='score', ascending=False)
-
-    # Create a rank order column
     df_passnyc.insert(0, 'rank', range(1, df_passnyc.shape[0] + 1))
 
     return df_passnyc

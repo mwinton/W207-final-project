@@ -9,7 +9,7 @@
 # 
 # [Return to project overview](final_project_overview.ipynb)
 
-# In[1]:
+# In[6]:
 
 
 # import necessary libraries
@@ -36,7 +36,7 @@ Xy_train = pd.concat([train_data, train_labels_df], axis=1)
 # ## Verifying correlation between "equivalent" percent and rating columns
 # The definitions of these "percent" and "rating" columns on Kaggle are identical, leading us to question whether these were duplicate columns, so we plotted them against each other. 
 
-# In[2]:
+# In[7]:
 
 
 plt.rcParams['figure.figsize'] = [12, 3]
@@ -66,10 +66,10 @@ plt.show()
 # 
 # As we expect many of our features to be highly correlated, looking at a visual representation of the correlation matrix is a useful step in our EDA.  In this first plot, we intentionally omit features either directly representing, or closely related to demographic features.  
 
-# In[3]:
+# In[8]:
 
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+get_ipython().magic('matplotlib inline')
 
 # choose key features for correlation matrix
 corr_features = ['grade_7_enrollment',
@@ -120,7 +120,7 @@ def draw_heatmap(df, fig_name):
 draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 
 
-# From this correlation matrix, we see that in general, feature related to test scores or academic proficiency are positively correlated with a high SHSAT registration rate.  Two features in our dataset are most negatively correlated with registration rate: the percentage of students which are chronically absent, as well as the "community school" indicator.  The former is very much intuitive, but the latter fact may be an noteworthy learning from this analysis.  It's also somewhat interesting to see that a _higher_ student-to-teacher ratio correlates positively with registration rate.
+# From this correlation matrix, we see that unfortunately most features show almost no correlation with a high SHSAT registration rate.  The rigorous intruction % score, as well as the supportive environment % score show weak negative correlations with registration rate. Several other features (e.g. average social studies class size) show a very weak positive correlation.
 # 
 # #### Interesting correlations
 # * Proficiency in both ELA and math is strongly correlated with strong attendance rate
@@ -135,7 +135,7 @@ draw_heatmap(Xy_train[corr_features], 'plots/corr_matrix_key_features.png')
 # 
 # As the lack of diversity in the SHSAT registrations is part of our original problem statement, it is also interesting to look at the existing correlation between demographic-related features and test registrations.
 
-# In[4]:
+# In[9]:
 
 
 # choose key features for correlation matrix
@@ -163,29 +163,23 @@ demog_features =  ['economic_need_index',
 draw_heatmap(Xy_train[demog_features], 'plots/corr_matrix_demographics.png')
 
 
-# We see that percent Asian and percent white correlate positively with high SHSAT registration rates, whereas percent black and Hispanic correlate negatively with the registration rate.  This is in agreement with the original problem statement that PASSNYC posed.  Additionally, schools with a higher economic need index correlate with lower registration rates.  However, even in light of this fact, it is particularly interesting to note that schools with a high proportion of economically disadvantage students scoring 4's on their ELA and Math exams tend to have higher registration rates, as well.
+# We see that surprisingly, percent Asian and percent white have a weak negative correlation with high SHSAT registration rates, whereas percent black, Hispanic, and ELL have weak positive correlations with the SHSAT registration rate.  It is particularly interesting to note that schools with a high proportion of economically disadvantaged students, limited English proficiency students, and black students scoring 4's on their ELA and Math exams tend to have higher registration rates, as well.  This is promising, as it seems to support PASSNYC's mission.
 # 
 # #### Interesting correlations
 # 
 # * Schools with high number of Hispanics also tend to have high economic need index
 # * Schools with high number of Hispanics also tend to have high English learners
 # * On the contrary, schools with high number of whites have low economic need index
-# * Schools with high number of SHSAT registrations tend to have high percentage of Asians
-# * Schools with high number of SHSAT registrations tend to have low economic need index
-# * Schools with high number of Hispanics tend not to have Asians, indicating segregation
-# * Schools with high number of economically disadvantaged students also tend to have Asians.  This is unusual and needs more investigation.
+# * Schools with high number of blacks and Hispanics tend not to have Asians, indicating segregation
+# * Schools with high number of Asian students also tend to have a higher number of 4's for both Math and English for economically disadvantaged students.
 # * Schools with high number of blacks tend not to have whites or Hispanics, again indicating segregation
 # * Schools tend to have high performers in both ELA and math, not just one of them.
-# 
-# The last row shows where we need to focus, based on demographics:
-# * Schools with high economic need index
-# * Schools with high percentage of blacks or Hispanics
 
 # ## Correlation Matrix: location and economic features
 # 
 # We would also like to look at the correlation between high registration rate and the boroughs and economic variables.
 
-# In[5]:
+# In[10]:
 
 
 # choose key features for correlation matrix
@@ -204,7 +198,7 @@ geo_econ_features =  ['in_bronx',
 draw_heatmap(Xy_train[geo_econ_features], 'plots/corr_matrix_boroughs.png')
 
 
-# We observe from this correlation matrix that the demographic and economics features in general are not strongly correlated with a high SHSAT registration rate.  There are very slight positive correlations for students in the Bronx or Brooklyn, as well as with the economic need index.  There is a slight negative correlation with SHSAT registration rate for students in Queens.  As such, we expect it will be unlikely that the indicator variables for the boroughs will have strong predictive value.
+# We observe from this correlation matrix that the demographic and economic features in general are not strongly correlated with a high SHSAT registration rate.  There are very slight positive correlations for students in the Bronx or Brooklyn, as well as with the economic need index.  There is a slight negative correlation with SHSAT registration rate for students in Queens.  As such, we expect it will be unlikely that the indicator variables for the boroughs will have strong predictive value.
 # 
 # We also see a negative correlation between school income estimate and high SHSAT registration rate, but caution that we only have these income estimates for about 1/3 of the schools in our dataset.  Contrary to our hypothesis that the existence or non-existence of such a school income estimate for a particular school might be meaningful, the binary flag for whether a school provided an income estimate seems uncorrelated with registration rate.
 
@@ -212,7 +206,7 @@ draw_heatmap(Xy_train[geo_econ_features], 'plots/corr_matrix_boroughs.png')
 # 
 # Let us look at the distribution of test taker percentage across NYC schools.
 
-# In[6]:
+# In[13]:
 
 
 plt.rcParams['figure.figsize'] = [12, 3]
@@ -222,7 +216,7 @@ plt.show()
 
 # There are quite a few outliers there.  Let us look at them.
 
-# In[8]:
+# In[14]:
 
 
 display(train_data[train_data['pct_test_takers'] >= 80].sort_values('pct_test_takers', ascending=False))
