@@ -16,7 +16,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
-# In[2]:
+# In[ ]:
 
 
 # import necessary libraries
@@ -45,7 +45,7 @@ k_folds = 5
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[3]:
+# In[ ]:
 
 
 # Get train-test split
@@ -62,7 +62,7 @@ train_data.head()
 # 
 # We will ignore some categorical variables and variables that are highly correlated with outcome variable.
 
-# In[6]:
+# In[ ]:
 
 
 drop_cols = [
@@ -102,7 +102,7 @@ perf_test_data_nonull = perf_test_data.fillna(perf_test_data.mean())
 # #### Searching for best $k$
 # Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[7]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -122,6 +122,8 @@ print("Best no. of neighbors: %d" % best_k_all_features)
 # In[ ]:
 
 
+scaler = StandardScaler().fit(perf_train_data_nonull)
+rescaledX = scaler.transform(perf_train_data_nonull)
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
 clf = KNeighborsClassifier(n_neighbors=best_k_all_features)
 cv_scores = cross_validate(clf, rescaledX, y, cv=k_folds, scoring=['accuracy', 'f1'])
@@ -136,7 +138,7 @@ util.print_cv_results(cv_scores)
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[8]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -151,7 +153,7 @@ print("Selected feature columns: %s" % selected_cols)
 # 
 # Let us also find the best number of neighbors for this subset of features.
 
-# In[9]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -171,7 +173,7 @@ print("Best no. of neighbors: %d" % best_k_some_features)
 
 # We will use this to run cross-validation on the model.
 
-# In[10]:
+# In[ ]:
 
 
 scaler = StandardScaler().fit(perf_train_data_nonull_sel)
@@ -193,7 +195,7 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[13]:
+# In[ ]:
 
 
 # generate plot of variance explained vs # principale components
@@ -206,7 +208,7 @@ util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[14]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -230,7 +232,7 @@ print("Best no. of PCA components: %d, neighbors: %d" %
 
 # We find that PCA with 8 components, followed by KNN with 7 neighbors is the best combination.
 
-# In[15]:
+# In[ ]:
 
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
@@ -258,7 +260,7 @@ util.print_cv_results(cv_scores)
 # 
 # The first model gives the best F1.  We will now use it to run on the test set and also for the final table.
 
-# In[16]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -282,7 +284,7 @@ print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of 
 # 
 # Lastly, according to the methodology described in our [overview notebook](final_project_overview.ipynb), we will make our recommendations to PASSNYC based on an analysis of schools that the models show to have the highest opportunity to engage with Black and Hispanic students, in order to increase SHSAT registration in this population. We consider these to be the schools that are most likely to benefit from PASSNYC's intervention and engagement.
 
-# In[17]:
+# In[ ]:
 
 
 pipeline = make_pipeline(StandardScaler(),
@@ -295,7 +297,7 @@ fp_df = util.run_model_get_ordered_predictions(pipeline, train_data, test_data,
 
 # Now that we have the false positives, we will obtain a ranking of the schools that we can provide to PASSNYC.
 
-# In[27]:
+# In[ ]:
 
 
 df_passnyc = util.create_passnyc_list(fp_df, train_data, test_data,
