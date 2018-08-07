@@ -208,7 +208,7 @@ features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 # 
 # To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
 
-# In[25]:
+# In[32]:
 
 
 trees_in_forest = best_forest.estimators_
@@ -222,7 +222,7 @@ for index in random_indeces:
                                feature_names=train_prepped.columns, rounded=True,
                                class_names=['not_high_registrations','high_registrations'],
                                out_file=None)
-    example_graphs.append(graphviz.Source(source=tree_viz, filename='cache_forest/tree_viz_{0}'.format(index), format='svg'))
+    graphviz.Source(source=tree_viz, filename='cache_forest/tree_viz_{0}'.format(index), format='svg').render()
 
 
 # In the displayed graphs below, the more orange a cell is, the more the samples that pass through it tend to be not in our "high_registrations" category. The more blue a cell is, the more it tends to include "high_registrations." We are using the gini measurement of impurity to structure our trees.
@@ -233,27 +233,20 @@ for index in random_indeces:
 # 
 # Then from each node, if a sample meets the condition that titles the node, it travels to the lower left branch. If it does not meed the condition of the node, it travels down the right branch.
 
-# In[26]:
+# #### Graph of Tree #13
+# 
+# ![Random Graph 0](cache_forest/tree_viz_13.svg)
 
+# #### Graph of Tree #39
+# 
+# ![Random Graph 1](cache_forest/tree_viz_39.svg)
 
-example_graphs[0].render()
-example_graphs[0]
+# #### Graph of Tree #77
+# 
+# ![Random Graph 0](cache_forest/tree_viz_77.svg)
 
-
-# In[28]:
-
-
-example_graphs[1].render()
-example_graphs[1]
-
-
-# In[29]:
-
-
-example_graphs[2].render()
-example_graphs[2]
-
-
+# Remember these are just three out of our total 100 trees that make our ensemble predictor, and each of these trees only have half of the total features in our set. Their variation is what helps 'smooth out the edges' of some of the predictions, to gain the benefits of an ensemble within a single model.
+# 
 # All in all, the graph results are to be expected given the features that we found to be important, but the PASSNYC team specifically asked for models that could be explained, and we feel these trees would of course help explain the model's decision-making process clearly to all stakeholders.
 
 # ### Measuring results on the test set
