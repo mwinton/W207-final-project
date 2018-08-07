@@ -6,7 +6,7 @@
 # 
 # ### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
 
-# In[ ]:
+# In[7]:
 
 
 # import necessary libraries
@@ -27,7 +27,7 @@ get_ipython().magic('matplotlib inline')
 # 
 # Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
 
-# In[ ]:
+# In[8]:
 
 
 # read the "production" version of the cleaned & merged dataset
@@ -38,7 +38,7 @@ print(train_labels.shape)
 
 # Filter to the columns that we will use in the model.  `district` and `zip`, while numeric, do not hold mathematical meaning and reduce accuracy and interpretability (it makes no sense to say that the higher or lower your district, the more or less likely you are to be a high-registering school).  `school_income_estimate` is too sparse to be be useful.  These columns are dropped from the model.
 
-# In[ ]:
+# In[9]:
 
 
 features_to_keep = [
@@ -122,7 +122,7 @@ train_data.head()
 # ## Hyperparameter Tuning
 # Find the optimal C-score and penalty using GridSearchCV.
 
-# In[ ]:
+# In[10]:
 
 
 from sklearn.preprocessing import StandardScaler
@@ -147,7 +147,7 @@ print('Best C:', best_c)
 # ## Make Pipeline and K-fold validation
 # Using five k-folds and the optimal hyperparameters from above, determine the overall accuracy and F1 score for the model.
 
-# In[ ]:
+# In[11]:
 
 
 from sklearn.model_selection import cross_val_score, cross_validate
@@ -163,7 +163,7 @@ util.print_cv_results(cv_scores)
 # ## Apply model to the test set
 # Check for overfitting by applying the model to the test set and reporting back accuracy and F1 score.
 
-# In[ ]:
+# In[12]:
 
 
 import sklearn.metrics as metrics
@@ -182,7 +182,7 @@ print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of 
 # ## Examine coefficients
 # For a better understanding of the model, including which factors are most important for predicting a high-registering school, we turn to an analysis of the model coefficients.  As the goal here is not prediction but comprehension, the first step is to recombine the data into a set that contains 100% of the schools.
 
-# In[ ]:
+# In[13]:
 
 
 # recombine train and test data into an aggregate dataset
@@ -199,7 +199,7 @@ X_neg = X_i[y==0]
 #  - The set of predictions, 1's or 0's, for the fifth of the model that gets tested on each iteration.  We use this as a measure of confidence in the model's predictions for the final recommendation.
 #  - The set of probabilities that each school will be a 1 or a 0, which are then averaged.  We use these to sort the schools by confidence later in the coefficient analysis.
 
-# In[ ]:
+# In[14]:
 
 
 from sklearn.model_selection import RepeatedStratifiedKFold
@@ -248,7 +248,7 @@ sorted_coefs
 # ### Most positively-influential features
 # Using the average coefficients, we can discover the features that have the greatest effect in predicting both a 1 (positive) or a zero (negative).  Histograms can show us the different distributions for high-registering and low-registering schools in these categories.
 
-# In[ ]:
+# In[15]:
 
 
 # Get the top and bottom 5 most influential coefficients
@@ -267,7 +267,7 @@ plt.show()
 
 # ### Most negatively-influential features
 
-# In[ ]:
+# In[16]:
 
 
 fig = plt.figure(figsize=(20,60))
@@ -284,7 +284,7 @@ plt.show()
 # 
 # The fact that `grade_7_ela_4s_hispanic_or_latino` and `grade_7_math_4s_hispanic_or_latino` have nearly opposite coefficients warrants some further investigation.  If we simply plot the two groups against each other, we can see they both have strong correlation--albeit it is stronger among high registrants, perhaps reflecting a greater difference in language skills than math skills between the two groups.
 
-# In[ ]:
+# In[17]:
 
 
 import seaborn as sns
@@ -297,7 +297,7 @@ ax.legend()
 
 # And if we plot a single-variable logistic regression for each of them against the target variable, we can see that they are, in fact, independently positive predictors.
 
-# In[ ]:
+# In[18]:
 
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -311,7 +311,7 @@ ax.legend()
 # 
 # It is also interesting to plot the Asian and Hispanic demographics against each other independently.
 
-# In[ ]:
+# In[19]:
 
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -326,7 +326,7 @@ ax.legend()
 # 
 # Another interesting plot is the `economic_need_index` distribution, which certainly **looks** predictive, however its average coefficient is very low, only -.04 (compared to -.1 or lower for the more influential features).  Like the Hispanic/Latino Math and ELA scores, this suggests that the variation contained in this feature has a high level of overlap with another feature--the correlation work in the EDA section of this analysis suggests that is probably `percent_black__hispanic`.
 
-# In[ ]:
+# In[20]:
 
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -339,7 +339,7 @@ ax.legend()
 # ### Heatmap Analysis
 # While it is useful to see which variables carry the most influence in aggregate, it can be puzzling to understand why some schools make the cut and some don't.  To see the variation on a per-school level, we can build a heatmap that contextualizes each school's data, and shows which variables pull the school in one direction or another in the eyes of the model.
 
-# In[ ]:
+# In[21]:
 
 
 # Create columns in the predictions DataFrame to show the number of times the model voted each school a 1 or a zero
@@ -354,7 +354,7 @@ predictions['0_prob'] = probs_0.mean(axis=1)
 predictions = predictions.sort_values(by='1_prob', ascending=False)
 
 
-# In[ ]:
+# In[22]:
 
 
 # Create a table of raw results, along with the number of votes each received and the true value
@@ -390,7 +390,7 @@ X_result_weighted_trimmed.head()
 # 
 # Looking across the row for each school, you can see which columns pulled that school towards a `1` prediction by the degree to which the color is yellow, while columns colored blue to black pull the school towards a 0.  Looking down the columns, you can see some that are reliable predictors, and others that are more sporadic but hit with larger influence.
 
-# In[ ]:
+# In[23]:
 
 
 # Plot the results
@@ -415,17 +415,21 @@ plt.show()
 # ### False Positives
 # While the full dataset is useful, it is also very large, and it can be useful to examine the instances in which the model gets things wrong.  Particularly the false positives, which the model thinks **should** be high-registering, but for some reason are not.  These are likely to be the most fruitful schools for PASSNYC to consider in its evaluations of candidates.  For this list, the threshhold to be considered a false positive is more than 5 predictions of a `1` for the school in the Repeated Stratified K Fold validation.
 
-# In[ ]:
+# In[32]:
 
 
+# Filter the predictions to just the low-registrants
 false_positives = predictions[predictions['true']==0]
+# Filter to just those schools that received more than 5 positive predictions, and trim to just this column
 false_positives = false_positives[false_positives['1s'] > 5]['1s']
-
+# Combine this result with the full dataset
 fp_result = pd.concat([false_positives, X_i], axis=1, join='inner')
 
+# As before, normalize the data and multiply it by the average coefficient
 scaled_fp_X = scaler.fit_transform(fp_result.iloc[:,1:])
 avg_coefs = np.array(coefs['avg'])
 weighted_values = np.multiply(scaled_fp_X, avg_coefs)
+# Make a copy of the dataframe, and replace the data columns with the scaled, weighted values
 fp_result_weighted = fp_result.copy()
 fp_result_weighted.iloc[:, 1:] = weighted_values
 # Drop the columns that don't have any evidence of influential values
@@ -437,7 +441,7 @@ fp_result_weighted_trimmed = fp_result_weighted.drop(drop_cols, axis=1)
 fp_result_weighted_trimmed.head()
 
 
-# In[ ]:
+# In[35]:
 
 
 # Plot the False Positives heatmap
@@ -463,16 +467,20 @@ plt.show()
 # ### False Negatives
 # Just as it can be helpful to see where the model went wrong in predicting high-registration schools, it can be instructive to see the schools that it thinks are low-registering, but are not.
 
-# In[ ]:
+# In[26]:
 
 
+# Filter the predictions to just the high-registrants
 false_negatives = predictions[predictions['true']==1]
+# Filter to just those schools that received more than 5 negative predictions, and trim to just this column
 false_negatives = false_negatives[false_negatives['0s'] > 5]['0s']
-
+# Combine this result with the full dataset
 fn_result = pd.concat([false_negatives, X_i], axis=1, join='inner')
 
+# As before, normalize the data and multiply it by the average coefficient
 scaled_fn_X = scaler.fit_transform(fn_result.iloc[:,1:])
 weighted_values = np.multiply(scaled_fn_X, avg_coefs)
+# Make a copy of the dataframe, and replace the data columns with the scaled, weighted values
 fn_result_weighted = fn_result.copy()
 fn_result_weighted.iloc[:, 1:] = weighted_values
 # Drop the columns that don't have any evidence of influential values
@@ -484,7 +492,7 @@ fn_result_weighted_trimmed = fn_result_weighted.drop(drop_cols, axis=1)
 fn_result_weighted_trimmed.head()
 
 
-# In[ ]:
+# In[27]:
 
 
 fig, ax = plt.subplots(figsize=(18,20))
@@ -510,7 +518,7 @@ plt.show()
 # ## Final ranking for PASSNYC
 # In accordance with the other models in this analysis, we undertake a final evaluation of the schools to determine which have the highest opportunity for engagement with a black and/or hispanic population, and which the model considers to have the highest potential to be high-registration schools.  We write the results to a CSV file for final assembly and reporting.
 
-# In[ ]:
+# In[28]:
 
 
 # Just the columns of interest
