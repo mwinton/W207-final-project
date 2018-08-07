@@ -16,7 +16,7 @@
 # ### Reading data
 # Let us do some initial imports and set up the data.
 
-# In[1]:
+# In[2]:
 
 
 # import necessary libraries
@@ -45,7 +45,7 @@ k_folds = 5
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[2]:
+# In[3]:
 
 
 # Get train-test split
@@ -62,7 +62,7 @@ train_data.head()
 # 
 # We will ignore some categorical variables and variables that are highly correlated with outcome variable.
 
-# In[3]:
+# In[6]:
 
 
 drop_cols = [
@@ -79,9 +79,9 @@ drop_cols = [
     # too many nulls
     'school_income_estimate',
 ]
+y = train_labels
 perf_train_data = train_data.drop(drop_cols, axis=1)
 perf_train_data_nonull = perf_train_data.fillna(perf_train_data.mean())
-
 perf_test_data = test_data.drop(drop_cols, axis=1)
 perf_test_data_nonull = perf_test_data.fillna(perf_test_data.mean())
 
@@ -102,7 +102,7 @@ perf_test_data_nonull = perf_test_data.fillna(perf_test_data.mean())
 # #### Searching for best $k$
 # Let us experiment with various values of $k$ to see which gives the best results.
 
-# In[5]:
+# In[7]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -119,7 +119,7 @@ print("Best no. of neighbors: %d" % best_k_all_features)
 
 # The best value for number of neighbors is $k=3$.  Let us get the scores for this value of $k$.
 
-# In[6]:
+# In[ ]:
 
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
@@ -136,7 +136,7 @@ util.print_cv_results(cv_scores)
 # 
 # We will now attempt to do some feature selection, followed by running KNN.
 
-# In[7]:
+# In[8]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -151,7 +151,7 @@ print("Selected feature columns: %s" % selected_cols)
 # 
 # Let us also find the best number of neighbors for this subset of features.
 
-# In[8]:
+# In[9]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -171,7 +171,7 @@ print("Best no. of neighbors: %d" % best_k_some_features)
 
 # We will use this to run cross-validation on the model.
 
-# In[9]:
+# In[10]:
 
 
 scaler = StandardScaler().fit(perf_train_data_nonull_sel)
@@ -193,20 +193,20 @@ util.print_cv_results(cv_scores)
 # 
 # First, we will attempt to find the best number of components.
 
-# In[10]:
+# In[13]:
 
 
 # generate plot of variance explained vs # principale components
 util.get_num_pcas(perf_train_data_nonull, var_explained=0.9)
 
 
-# We can see that the first 3 components already explain more than 70% of variance.  The slope of the graph goes down after this, indicating that remaining components are not as informative.
+# We can see that the first 3 components already explain about 40% of variance.  The slope of the graph goes down after this.
 # 
 # #### Searching for best $k$
 # 
 # Let us run GridSearch on both PCA components and K, to see if we can get a better model.
 
-# In[11]:
+# In[14]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -230,7 +230,7 @@ print("Best no. of PCA components: %d, neighbors: %d" %
 
 # We find that PCA with 8 components, followed by KNN with 7 neighbors is the best combination.
 
-# In[12]:
+# In[15]:
 
 
 # Do k-fold cross-validation, collecting both "test" accuracy and F1 
@@ -258,7 +258,7 @@ util.print_cv_results(cv_scores)
 # 
 # The first model gives the best F1.  We will now use it to run on the test set and also for the final table.
 
-# In[13]:
+# In[16]:
 
 
 pipeline = make_pipeline(StandardScaler(), 
@@ -274,15 +274,15 @@ print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of 
 
 # On test set, we get 87% accuracy, and good F1 score at 0.73.
 
+# We will use the last model run above (PCA, most features) to generate the school list.
+# 
 # ***
 # 
-# ### List of schools for PASSNYC
+# ## Recommendations for PASSNYC
 # 
-# Let us look at what schools the model classified as positive, but were actually negative.  These are the schools we should target, because the model thinks they should have high SHSAT registrations, but in reality they do not.
-# 
-# We will use the last model run above (PCA, most features) to generate the school list.
+# Lastly, according to the methodology described in our [overview notebook](final_project_overview.ipynb), we will make our recommendations to PASSNYC based on an analysis of schools that the models show to have the highest opportunity to engage with Black and Hispanic students, in order to increase SHSAT registration in this population. We consider these to be the schools that are most likely to benefit from PASSNYC's intervention and engagement.
 
-# In[14]:
+# In[17]:
 
 
 pipeline = make_pipeline(StandardScaler(),
@@ -295,7 +295,7 @@ fp_df = util.run_model_get_ordered_predictions(pipeline, train_data, test_data,
 
 # Now that we have the false positives, we will obtain a ranking of the schools that we can provide to PASSNYC.
 
-# In[15]:
+# In[27]:
 
 
 df_passnyc = util.create_passnyc_list(fp_df, train_data, test_data,
