@@ -10,7 +10,7 @@
 # 
 # First we import necessary libraries, including our util functions, and set Pandas and Matplotlib options.
 
-# In[11]:
+# In[1]:
 
 
 # import necessary libraries
@@ -18,9 +18,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import time
+import graphviz
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
+from sklearn.tree import export_graphviz
 from sklearn.model_selection import GridSearchCV, cross_validate, RepeatedStratifiedKFold
 from sklearn.preprocessing import MinMaxScaler
 from util import our_train_test_split, read_data, get_dummies,     print_cv_results, run_model_get_ordered_predictions, create_passnyc_list
@@ -187,8 +189,10 @@ print('The F1 score is: %.3f (95%% CI from %.3f to %.3f).' %
 # These features have the highest feature importance scores as found by our best forest model.
 # 
 # Unsurprisingly, they tend to include our most general metrics of performance, like average proficiency and grade 7 ela scores of 4 across all students.
+# 
+# It is interesting to see how heavily the absence and attendance rates factor in.
 
-# In[7]:
+# In[11]:
 
 
 features = train_prepped.columns
@@ -200,12 +204,64 @@ features_and_importances = pd.DataFrame(feature_importances,features,['Importanc
 features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 
 
+# ### Viewing a few trees from our forest
+# 
+# To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
+
+# In[25]:
+
+
+trees_in_forest = best_forest.estimators_
+max_index = len(trees_in_forest)
+
+random_indeces = np.random.randint(0, max_index, 3)
+example_graphs = []
+
+for index in random_indeces:
+    tree_viz = export_graphviz(trees_in_forest[index], proportion=True, filled=True,
+                               feature_names=train_prepped.columns, rounded=True,
+                               class_names=['not_high_registrations','high_registrations'],
+                               out_file=None)
+    example_graphs.append(graphviz.Source(source=tree_viz, filename='cache_forest/tree_viz_{0}'.format(index), format='svg'))
+
+
+# In the displayed graphs below, the more orange a cell is, the more the samples that pass through it tend to be not in our "high_registrations" category. The more blue a cell is, the more it tends to include "high_registrations." We are using the gini measurement of impurity to structure our trees.
+# 
+# The samples percentage tells us what percentage of our total samples pass through this node.
+# 
+# The value list tells us how many of the samples that have reached this node are in each class. So the first value (value[0]) indicates what proportion of the samples in the node are not high_registrations, and the second value (value[1]) tells us how many are high_registrations. You can see that these values correspond to the coloring of the graph.
+# 
+# Then from each node, if a sample meets the condition that titles the node, it travels to the lower left branch. If it does not meed the condition of the node, it travels down the right branch.
+
+# In[26]:
+
+
+example_graphs[0].render()
+example_graphs[0]
+
+
+# In[28]:
+
+
+example_graphs[1].render()
+example_graphs[1]
+
+
+# In[29]:
+
+
+example_graphs[2].render()
+example_graphs[2]
+
+
+# All in all, the graph results are to be expected given the features that we found to be important, but the PASSNYC team specifically asked for models that could be explained, and we feel these trees would of course help explain the model's decision-making process clearly to all stakeholders.
+
 # ### Measuring results on the test set
 # 
 # Now that we have determined our best preprocessing steps and hyperparameters,
 # we evaluate our results on our test set.
 
-# In[8]:
+# In[16]:
 
 
 # We train on our full training data on a new forest with our best_params
@@ -228,7 +284,7 @@ print("Accuracy: {0:.4f}".format(accuracy))
 # We will make our recommendations based on our false positives (i.e. schools that our model
 # thinks should be ranked as 'high_registrations', but for whatever reason, aren't).
 
-# In[13]:
+# In[17]:
 
 
 fp_df = run_model_get_ordered_predictions(best_forest, train_data, test_data,
