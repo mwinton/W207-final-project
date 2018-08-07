@@ -360,17 +360,9 @@ print('False positives: %d\n' % (fp))
 print(classification_report(test_labels, test_predict))
 
 
-# ## Analyze predictions to make recommendations to PASSNYC
-# Lastly, we will prioritize the schools based on features that align with the PASSNYC diversity-oriented mission.  We recombine our training and test sets and run k-fold cross-validation with 5 folds 10 times, which means every school is predicted 10 times.  We look at what fraction of these 10 times each school was predicted to be a high registration school and compare this to the true label.
+# ## Prioritized Engagement recommenda
 # 
-# We then apply a ranking algorithm:
-# 1. Determine the number of test takers a school would have needed to meet the median percentage of high_registrations
-# 2. Subtract the number of actual test takers from the hypothetical minimum number.  (Note that for ranking purposes, it is acceptable for this to be a negative number.)
-# 3. Multiply the delta by the minority percentage of the school to estimate how many minority students might have taken the test if the school were a median high-registration school.
-# 4. Multiply this delta by the fraction of positive votes as a proxy for confidence in the prediction.
-# 5. Sort (descending) by this ranking.
-# 
-# This analysis attempts to capture a set of schools which have a lot in common with high registration schools, but for some reason fall short.  As a result, we believe these are good candidates for the PASSNYC organization to engage with, as investing in programs with these schools may be more highly to payoff with increase registration rates.  
+# Lastly, according to the methodology described in our [overview notebook](final_project_overview.ipynb), we will make our recommendations to PASSNYC based on an analysis of schools that the models show to have the highest opportunity to engage with Black and Hispanic students, in order to increase SHSAT registration in this population. We consider these to be the schools that are most likely to benefit from PASSNYC's intervention and engagement.
 
 # In[ ]:
 
