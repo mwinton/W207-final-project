@@ -235,15 +235,15 @@ for index in random_indeces:
 
 # #### Graph of Tree #13
 # 
-# ![Random Graph 0](cache_forest/tree_viz_13.svg)
+# ![[Link to Graph #13](https://www.dropbox.com/s/vqg9hm8ol2kxy7d/tree_viz_13.svg?dl=0)](cache_forest/tree_viz_13.svg)
 
 # #### Graph of Tree #39
 # 
-# ![Random Graph 1](cache_forest/tree_viz_39.svg)
+# ![[Link to Graph #39](https://www.dropbox.com/s/x0ny1fpk13yj16c/tree_viz_39.svg?dl=0)](cache_forest/tree_viz_39.svg)
 
 # #### Graph of Tree #77
 # 
-# ![Random Graph 0](cache_forest/tree_viz_77.svg)
+# ![[Link to Graph #39](https://www.dropbox.com/s/rlspal912qu0euf/tree_viz_77.svg?dl=0)](cache_forest/tree_viz_77.svg)
 
 # Remember these are just three out of our total 100 trees that make our ensemble predictor, and each of these trees only have half of the total features in our set. Their variation is what helps 'smooth out the edges' of some of the predictions, to gain the benefits of an ensemble within a single model.
 # 
