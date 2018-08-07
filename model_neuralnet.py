@@ -30,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
 
-get_ipython().magic('matplotlib inline')
+get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 # ## Load data and split class labels into separate array
@@ -360,7 +360,7 @@ print('False positives: %d\n' % (fp))
 print(classification_report(test_labels, test_predict))
 
 
-# ## Prioritized Engagement recommenda
+# ## Prioritized Engagement recommendations
 # 
 # Lastly, according to the methodology described in our [overview notebook](final_project_overview.ipynb), we will make our recommendations to PASSNYC based on an analysis of schools that the models show to have the highest opportunity to engage with Black and Hispanic students, in order to increase SHSAT registration in this population. We consider these to be the schools that are most likely to benefit from PASSNYC's intervention and engagement.
 
