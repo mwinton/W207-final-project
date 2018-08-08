@@ -31,7 +31,7 @@ import pickle
 # set default options
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
-get_ipython().run_line_magic('matplotlib', 'inline')
+get_ipython().magic('matplotlib inline')
 
 
 # ### Reading our data using util cleanup and imputing
@@ -146,7 +146,7 @@ except:
     
 # Then display our results in a Pandas dataframe, sorted by
 # rank based on mean f1 score across 5-fold CV testing:
-cv_results.sort_values('rank_test_f1')
+cv_results.sort_values('rank_test_f1').head(10)
 
 
 # In[6]:
@@ -208,7 +208,7 @@ features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 # 
 # To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
 
-# In[10]:
+# In[8]:
 
 
 trees_in_forest = best_forest.estimators_
@@ -265,7 +265,7 @@ for index in random_indeces:
 # Now that we have determined our best preprocessing steps and hyperparameters,
 # we evaluate our results on our test set.
 
-# In[11]:
+# In[9]:
 
 
 # We train on our full training data on a new forest with our best_params
@@ -287,7 +287,7 @@ print("Accuracy: {0:.4f}".format(accuracy))
 # 
 # We will make our final recommendations based on the ranking methods described in our [overview notebook](final_project_overview.ipynb) that seek to identify the greatest opportunities for increasing SHSAT registrations at schools with high black and hispanic populations.
 
-# In[12]:
+# In[10]:
 
 
 fp_df = run_model_get_ordered_predictions(best_forest, train_data, test_data,
@@ -302,5 +302,5 @@ df_passnyc = create_passnyc_list(fp_df, train_data, test_data, train_labels, tes
 # Write to CSV
 df_passnyc.to_csv('results/results.randomforest.csv')
 
-df_passnyc
+df_passnyc.head(10)
 
