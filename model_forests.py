@@ -10,7 +10,7 @@
 # 
 # First we import necessary libraries, including our util functions, and set Pandas and Matplotlib options.
 
-# In[1]:
+# In[3]:
 
 
 # import necessary libraries
@@ -38,7 +38,7 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 # 
 # Our util module has shared utility functions for cleaning up our data and imputing means.
 
-# In[2]:
+# In[4]:
 
 
 # Read the cleaned, merged, and mean-imputed data from our utility function
@@ -47,7 +47,7 @@ train_data, test_data, train_labels, test_labels = read_data(do_imputation=True)
 
 # We'll drop some columns that were used to calculate our dependendt variable, as well as our index column, school name strings, and `school_income_estimate` which had too many missing values to fill via imputing.
 
-# In[3]:
+# In[5]:
 
 
 # We drop a few features for the following reasons:
@@ -74,7 +74,7 @@ train_prepped = train_data.drop(FEATURES_TO_DROP,axis=1)
 test_prepped = test_data.drop(FEATURES_TO_DROP,axis=1)
 
 
-# In[4]:
+# In[6]:
 
 
 # We confirm our resulting data has no more NAs
@@ -85,7 +85,7 @@ print("Confirm total of remaining NAs is: ",np.sum(np.sum(train_prepped.isna()))
 # 
 # We now move into training our random forest model. To optimize our hyperparameter of how many trees to include in our forest, we use GridSearchCV and take advantage of its cross validation capability to use cross validation against our training set instead of further reducing our data into smaller train and dev sets. 
 
-# In[5]:
+# In[9]:
 
 
 # We define into how many groups we'd like to split our test data
@@ -146,10 +146,10 @@ except:
     
 # Then display our results in a Pandas dataframe, sorted by
 # rank based on mean f1 score across 5-fold CV testing:
-cv_results.sort_values('rank_test_f1')
+cv_results.sort_values('rank_test_f1').head(10)
 
 
-# In[6]:
+# In[11]:
 
 
 # We extract our best model and best parameters from our GridSearchCV results.
@@ -192,7 +192,7 @@ print('The F1 score is: %.3f (95%% CI from %.3f to %.3f).' %
 # 
 # It is interesting to see how heavily the absence and attendance rates factor in.
 
-# In[7]:
+# In[12]:
 
 
 features = train_prepped.columns
@@ -208,7 +208,7 @@ features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 # 
 # To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
 
-# In[10]:
+# In[13]:
 
 
 trees_in_forest = best_forest.estimators_
@@ -265,7 +265,7 @@ for index in random_indeces:
 # Now that we have determined our best preprocessing steps and hyperparameters,
 # we evaluate our results on our test set.
 
-# In[11]:
+# In[14]:
 
 
 # We train on our full training data on a new forest with our best_params
@@ -287,7 +287,7 @@ print("Accuracy: {0:.4f}".format(accuracy))
 # 
 # We will make our final recommendations based on the ranking methods described in our [overview notebook](final_project_overview.ipynb) that seek to identify the greatest opportunities for increasing SHSAT registrations at schools with high black and hispanic populations.
 
-# In[12]:
+# In[15]:
 
 
 fp_df = run_model_get_ordered_predictions(best_forest, train_data, test_data,
@@ -302,5 +302,5 @@ df_passnyc = create_passnyc_list(fp_df, train_data, test_data, train_labels, tes
 # Write to CSV
 df_passnyc.to_csv('results/results.randomforest.csv')
 
-df_passnyc
+df_passnyc.head(10)
 
