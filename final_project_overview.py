@@ -21,11 +21,11 @@
 
 # ## Overview of our approach
 # 
-# We are going to approach this analysis as a classification problem, by defining a class label related to the proportion of students at a school who register for the SHSAT test (ie. we will define "high-registration" schools).  We will build models with multiple machine learning algorithms such as LogisticRegression, K-Nearest Neighbors, Random Forests, and Neural Networks.  We will explore both feature-rich models, as well as models built after feature selection or a dimensionality reduction technique such as PCA, have been used to reduce the number of features in the model.  
+# We are going to approach this analysis as a classification problem, by defining a class label related to the proportion of students at a school who register for the SHSAT test (ie. we will define "high-registration" schools).  As we will show in our Exploratory Data Analysis, there is a natural break-point around the 75th percentile for registration rate, which is at 38%.  Therefore, schools with a registration rate of 38% or more will be designated as `high_registrations` schools and given a boolean value of '1', while the other ~75% of schools will get a '0'.  We will build models with multiple machine learning algorithms such as LogisticRegression, K-Nearest Neighbors, Random Forests, and Neural Networks to train and predict on this target variable.  We will explore both feature-rich models, as well as models built after feature selection or a dimensionality reduction technique such as PCA, have been used to reduce the number of features in the model.  
 # 
 # For assessing quality of our models, we will use an 80/20 train/test split of our dataset.  We will use K-fold cross-validation within the training set for hyperparameter optimization, and will calculate average accuracy and F1 scores (along with 95% confidence intervals) based on the cross-validation results.  Once hyperparameter optimization is complete, we will run the model against our held-out test set and report accuracy and F1 score.
 # 
-# Following that, we will analyze the highest scored false positives from each model **TBD: with a sufficiently high F1 score?**, and prioritize them for PASSNYC engagement based on attributes such as % registrations, % black and Hispanic students, in alignment with the organization's mission.
+# Following that, we will prioritize schools for PASSNYC engagement based on a combination of attributes such as performance in the model, registration percentage, class size, proportion of Black and Hispanic students, etc, in alignment with the organization's mission.
 
 # ## Datasets
 # 
@@ -49,7 +49,7 @@
 
 # ### 5. Gifted and Talented Schools Lists
 # 
-# New York City also has a set of test-in Gifted & Talented (G&T) programs.  Some of city-wide, and others give preference to students within a particular district.  Data on which schools have these programs was scraped from [insideschools.org](http://insideschools.org).
+# New York City also has a set of test-in Gifted & Talented (G&T) programs.  Some are city-wide, and others give preference to students within a particular district.  Data on which schools have these programs was scraped from [insideschools.org](http://insideschools.org).
 
 # ## Preliminary EDA and Data Cleaning
 # 
@@ -71,9 +71,9 @@ from IPython.display import Image
 Image(filename='plots/corr_matrix_key_features.png') 
 
 
-# As discussed in our [EDA notebook](eda_correlation_matrices.ipynb), from this correlation matrix we see that unfortunately most features show almost no correlation with a high SHSAT registration rate. The rigorous intruction % score, as well as the supportive environment % score show weak negative correlations with registration rate. Several other features (e.g. average social studies class size) show a very weak positive correlation.  Collaborative teachers, effective school leadership, and trust percentage are highly correlated between each other. It seems as if they occur together. But they don't seem to have any correlation with high registrations.
-# 
-# Academic proficiency is strongly negatively correlated with low attendance schools (% chronically absent). It may be that improving attendance could significantly improve performance. Community schools are negatively correlated with proficiency. This is probably due to a hidden variable: they are located in neighborhoods that are not conducive for student performance.
+# As discussed in our [EDA notebook](eda_correlation_matrices.ipynb), from this correlation matrix we see that unfortunately most features show almost no correlation with a high SHSAT registration rate (`pct_test_takers`). The `rigorous_instruction_percent` score, as well as the `supportive_environment_percent` score show weak negative correlations with registration rate. Several other features (e.g. average social studies class size) show a very weak positive correlation.  `collaborative_teachers_percent`, effective school leadership, and `trust_percent` are highly correlated between each other. It seems as if they occur together. But they don't seem to have any correlation with high registrations.
+#  
+# Academic proficiency (`average_ela_proficiency` and `average_math_proficiency`) is strongly negatively correlated with low attendance schools (`percent_of_students_chronically_absent`). It may be that improving attendance could significantly improve performance. `community_school` is negatively correlated with proficiency. This is probably due to a hidden variable: they are located in neighborhoods that are not conducive for student performance.
 
 # In[ ]:
 
@@ -81,9 +81,9 @@ Image(filename='plots/corr_matrix_key_features.png')
 Image(filename='plots/corr_matrix_demographics.png') 
 
 
-# Also as previously mentioned in our EDA notebook, we see that surprisingly, percent Asian and percent white have a weak negative correlation with high SHSAT registration rates, whereas percent black, Hispanic, and ELL have weak positive correlations with the SHSAT registration rate. Our data also shows significant signs of segregation as can be seen in the negative correlations between races.  
+# We see that surprisingly, `percent_asian` and `percent_white` have a weak negative correlation with high SHSAT registration rates, whereas `percent_black__hispanic` and `percent_ell` have weak positive correlations with the SHSAT registration rate. Our data also shows significant signs of segregation as can be seen in the negative correlations between races.
 # 
-# It is particularly interesting to note that schools with a high proportion of economically disadvantaged students, limited English proficiency students, and black students scoring 4's on their ELA and Math exams tend to have higher registration rates, as well. This is promising, as it seems to support PASSNYC's mission.
+# It is particularly interesting to note that schools with a high proportion of economically disadvantaged students, limited English proficiency students, and black students scoring 4s on their ELA and Math exams tend to have higher registration rates, as well. This is promising, as it seems to support PASSNYC's mission.
 
 # In[ ]:
 
@@ -91,9 +91,9 @@ Image(filename='plots/corr_matrix_demographics.png')
 Image(filename='plots/corr_matrix_boroughs.png')
 
 
-# As discussed in our EDA notebook, we observe from this correlation matrix that the demographic and economic features in general are not strongly correlated with high SHSAT registration rates.  There are very slight positive correlations for students in the Bronx or Brooklyn, as well as with the economic need index.  There is a slight negative correlation with SHSAT registration rate for students in Queens.  As such, we expect it will be unlikely that the indicator variables for the boroughs will have strong predictive value.
+# We observe from this correlation matrix that the demographic and economic features in general are not strongly correlated with high SHSAT registration rates.  There are very slight positive correlations for students `in_bronx` or `in_brooklyn`, as well as with the `economic_need_index`.  There is a slight negative correlation with SHSAT registration rate for students `in_queens`.  As such, we expect it will be unlikely that the indicator variables for the boroughs will have strong predictive value.
 # 
-# We also see a negative correlation between school income estimate and high SHSAT registration rate, but caution that we only have these income estimates for about 1/3 of the schools in our dataset.
+# We also see a negative correlation between `school_income_estimate` and high SHSAT registration rate, but caution that we only have these income estimates for about 1/3 of the schools in our dataset.
 
 # ## Model Building
 # 
@@ -113,9 +113,9 @@ Image(filename='plots/corr_matrix_boroughs.png')
 # K-Nearest Neighbors | 0.849 | (0.721, 0.976) | 0.637 | (0.328, 0.946) | 0.87 | 0.73
 # Random Forest | 0.846 | (0.766, 0.927) | 0.687 | (0.549, 0.825) | 0.85 | 0.71
 # Logistic Regression | 0.846 | (0.771, 0.921) | 0.660 | (0.467, 0.853) | 0.88 | 0.72
-# Mulilayer Perceptron NN | 0.827 | (0.727. 0.928) | 0.633 | (0.382, 0.884) | 0.81 | 0.80
+# Mulilayer Perceptron NN | 0.862 | (0.770, 0.956) | 0.675 | (0.422, 0.928) | 0.81 | 0.80
 # 
-# From this **TBD: MODEL** appears to have the best classification accuracy on our dataset.  However, since ensembles in general have better performance than any individual model, we will use a combination of these models for predicting the specific schools we would recommend that PASSNYC engage with.
+# From this it appears that while some models outperform in cross-validation or test-set, accuracy or F1 score, all of the models are quite close to each other.  Since the models have various strengths and weaknesses, and since ensembles in general have better performance than any individual model, we will use a combination of these models for predicting the specific schools we would recommend that PASSNYC engage with.
 
 # ## Prioritized Engagement Recommendations
 # 
@@ -128,13 +128,14 @@ Image(filename='plots/corr_matrix_boroughs.png')
 # 3. Subtract `num_shsat_test_takers` (obtained from NY Times) from this number to obtain a delta--the number of students each school is away from its 'target' number (note, for very high performers, this number will be negative).
 # 4. Multiply this delta by `percent_black__hispanic`, obtained from the PASSNYC Explorer dataset, to get a relative measure of the size of the opportunity to engage with the minority population at each school.<sup>1</sup>
 # 5. Once the various models were tuned to our satisfaction, the entire set of 464 schools underwent a Repeated Stratified K-fold cross-validation.  The schools are divided into five parts, the model is trained on four of those parts and then used to predict the answers for the fifth part.  This is repeated five times so every segment gets predicted, and then the whole list is shuffled and the test repeated a total of 10 times, which means each model is run 50 separate times and each school is predicted 10 times.  This is used to generate a positive measure of confidence for each school - if a model predicts a school is high-registering 10 out of 10 times, it gets a score of 100%.  If it predicts a school to be low-registering 10 times, it gets a score of 0%.  This confidence then multiplied by the school's `minority_delta` to obtain a `score`, which represents the overall measure of minority engagement opportunity for each school.<sup>2</sup>
-# 6. The `scores` are then averaged across the four models--K Nearest Neighbors, Logistic Regression, Random Forests, and Multilayer Perceptron--to obtain the final list below.  The resulting schools are the ones that we recommend PASSNYC engage with for the highest anticipated ROI:
+# 6. The `scores` are then averaged across the four models--K Nearest Neighbors, Logistic Regression, Random Forests, and Multilayer Perceptron--to obtain the final list below.  The resulting schools are the ones that we recommend PASSNYC engage with for the highest anticipated ROI.
 # 
 # <font size='1'><p><sup>1</sup>It is important to note that this number, which we call `minority_delta`, is not a measure of the absolute number of minority students who did not take the test, since we do not know the demographic numbers of students who actually took the test--just the demography of the school at large.  The extent to which the test-taking population does not resemble the larger student body will distort this number.  However, it is the best proxy method we could determine to get a sense of the size of the *opportunity* to engage with a black/hispanic population at a school.</p>
 # 
 # <p><sup>2</sup>Since we are only using this confidence measure on positive predictions, and schools with a high `minority_delta` tend to have low registrations, this mostly results in false positives (ie, schools that the model predicts are high-registering, but aren't).  We do not promote schools that the model is confident are low-registering.  However, a large school with a disproportionately high percentage of black and hispanic students could still be represented, provided their registration numbers were sufficiently below the threshhold.  These schools are marked as `high_registrations` in the final tally.</p></font>
 
 # ### Top 20 Schools
+# These are the schools that we recommend PASSNYC consider as its highest-priority for engagement, representing the greatest opportunity for a return on investment in promoting SHSAT registration.
 
 # In[ ]:
 
@@ -161,6 +162,11 @@ df_final.insert(0, 'rank', range(1,df_final.shape[0]+1))
 df_final.head(20)
 
 
+# #### Notes
+# Concurrence among the models is actually quite high, considering how different their approaches are.  Schools like IS 230 and JHS 220 John J Pershing, which have unanimous scores, represent equivalent confidence from each model (likely 100%), despite having a relatively smaller number of students to engage.  Other schools, such as IS 145 Joseph Pulitzer, demonstrate considerable volatility among the models, and yet score high due to the size of potential engagement--these might warrant closer examination among the models to see which approach resonates most closely with the philosophy of PASSNYC administrators, and get re-weighted accordingly.
+
 # ## Further Work
 # 
-# **TODO: decide whether we need anything here **
+# As noted in the Methodology section, we believe the biggest assumption--and therefore the greatest weakness--of this approach is the use of whole-school `percent_black__hispanic` demographics as a proxy for test-taking demographics.  Accuracy here would be greatly improved with a description of the students who are actually signing up for the test at each school (if such data exists).
+# 
+# Also helpful would be data from PASSNYC itself, quantifying its success at previous schools.  Given sufficient data on previous engagements, this methodology might be able to more accurately estimate how many students could benefit from PASSNYC's approach.
