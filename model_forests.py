@@ -10,7 +10,7 @@
 # 
 # First we import necessary libraries, including our util functions, and set Pandas and Matplotlib options.
 
-# In[11]:
+# In[1]:
 
 
 # import necessary libraries
@@ -18,9 +18,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import time
+import graphviz
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
+from sklearn.tree import export_graphviz
 from sklearn.model_selection import GridSearchCV, cross_validate, RepeatedStratifiedKFold
 from sklearn.preprocessing import MinMaxScaler
 from util import our_train_test_split, read_data, get_dummies,     print_cv_results, run_model_get_ordered_predictions, create_passnyc_list
@@ -187,6 +189,8 @@ print('The F1 score is: %.3f (95%% CI from %.3f to %.3f).' %
 # These features have the highest feature importance scores as found by our best forest model.
 # 
 # Unsurprisingly, they tend to include our most general metrics of performance, like average proficiency and grade 7 ela scores of 4 across all students.
+# 
+# It is interesting to see how heavily the absence and attendance rates factor in.
 
 # In[7]:
 
@@ -200,12 +204,68 @@ features_and_importances = pd.DataFrame(feature_importances,features,['Importanc
 features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 
 
+# ### Viewing a few trees from our forest
+# 
+# To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
+
+# In[10]:
+
+
+trees_in_forest = best_forest.estimators_
+max_index = len(trees_in_forest)
+
+random_indeces = np.random.randint(0, max_index, 3)
+example_graphs = []
+
+for index in random_indeces:
+    tree_viz = export_graphviz(trees_in_forest[index], proportion=True, filled=True,
+                               feature_names=train_prepped.columns, rounded=True,
+                               class_names=['not_high_registrations','high_registrations'],
+                               out_file=None)
+    try:
+        graphviz.Source(source=tree_viz,
+                        filename='cache_forest/tree_viz_{0}'.format(index),
+                        format='svg').render()
+    except ExecutableNotFound:
+        print("Your system lacks GraphViz. Instructions to install for your" +             "operating system should be available at https://graphviz.gitlab.io/download/" +             "The images will be loaded and linked to below, so you don't need it to view" +             "this notebook.")
+
+
+# In the displayed graphs below, the more orange a cell is, the more the samples that pass through it tend to be not in our "high_registrations" category. The more blue a cell is, the more it tends to include "high_registrations." We are using the gini measurement of impurity to structure our trees.
+# 
+# The samples percentage tells us what percentage of our total samples pass through this node.
+# 
+# The value list tells us how many of the samples that have reached this node are in each class. So the first value (value[0]) indicates what proportion of the samples in the node are not high_registrations, and the second value (value[1]) tells us how many are high_registrations. You can see that these values correspond to the coloring of the graph.
+# 
+# Then from each node, if a sample meets the condition that titles the node, it travels to the lower left branch. If it does not meed the condition of the node, it travels down the right branch.
+
+# #### Graph of Tree #13
+# 
+# ![Graph #13](cache_forest/tree_viz_13.svg)
+# 
+# [Link to Graph #13 if not rendering on GitHub](https://www.dropbox.com/s/vqg9hm8ol2kxy7d/tree_viz_13.svg?dl=0)
+
+# #### Graph of Tree #39
+# 
+# ![Graph #39](cache_forest/tree_viz_39.svg)
+# 
+# [Link to Graph #39 if not rendering on GitHub](https://www.dropbox.com/s/x0ny1fpk13yj16c/tree_viz_39.svg?dl=0)
+
+# #### Graph of Tree #77
+# 
+# ![Graph #39](cache_forest/tree_viz_77.svg)
+# 
+# [Link to Graph #77 if not rendering on GitHub](https://www.dropbox.com/s/rlspal912qu0euf/tree_viz_77.svg?dl=0)
+
+# Remember these are just three out of our total 100 trees that make our ensemble predictor, and each of these trees only have half of the total features in our set. Their variation is what helps 'smooth out the edges' of some of the predictions, to gain the benefits of an ensemble within a single model.
+# 
+# All in all, the graph results are to be expected given the features that we found to be important, but the PASSNYC team specifically asked for models that could be explained, and we feel these trees would of course help explain the model's decision-making process clearly to all stakeholders.
+
 # ### Measuring results on the test set
 # 
 # Now that we have determined our best preprocessing steps and hyperparameters,
 # we evaluate our results on our test set.
 
-# In[8]:
+# In[11]:
 
 
 # We train on our full training data on a new forest with our best_params
@@ -228,7 +288,7 @@ print("Accuracy: {0:.4f}".format(accuracy))
 # We will make our recommendations based on our false positives (i.e. schools that our model
 # thinks should be ranked as 'high_registrations', but for whatever reason, aren't).
 
-# In[13]:
+# In[12]:
 
 
 fp_df = run_model_get_ordered_predictions(best_forest, train_data, test_data,
