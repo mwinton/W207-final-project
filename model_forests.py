@@ -192,7 +192,7 @@ print('The F1 score is: %.3f (95%% CI from %.3f to %.3f).' %
 # 
 # It is interesting to see how heavily the absence and attendance rates factor in.
 
-# In[11]:
+# In[7]:
 
 
 features = train_prepped.columns
@@ -208,7 +208,7 @@ features_and_importances.sort_values('Importances', ascending=False).iloc[1:11,]
 # 
 # To see what decisions some of our trees are coming to, let's take a look at three random trees out of our group of estimators.
 
-# In[32]:
+# In[10]:
 
 
 trees_in_forest = best_forest.estimators_
@@ -222,7 +222,12 @@ for index in random_indeces:
                                feature_names=train_prepped.columns, rounded=True,
                                class_names=['not_high_registrations','high_registrations'],
                                out_file=None)
-    graphviz.Source(source=tree_viz, filename='cache_forest/tree_viz_{0}'.format(index), format='svg').render()
+    try:
+        graphviz.Source(source=tree_viz,
+                        filename='cache_forest/tree_viz_{0}'.format(index),
+                        format='svg').render()
+    except ExecutableNotFound:
+        print("Your system lacks GraphViz. Instructions to install for your" +             "operating system should be available at https://graphviz.gitlab.io/download/" +             "The images will be loaded and linked to below, so you don't need it to view" +             "this notebook.")
 
 
 # In the displayed graphs below, the more orange a cell is, the more the samples that pass through it tend to be not in our "high_registrations" category. The more blue a cell is, the more it tends to include "high_registrations." We are using the gini measurement of impurity to structure our trees.
@@ -260,7 +265,7 @@ for index in random_indeces:
 # Now that we have determined our best preprocessing steps and hyperparameters,
 # we evaluate our results on our test set.
 
-# In[16]:
+# In[11]:
 
 
 # We train on our full training data on a new forest with our best_params
@@ -283,7 +288,7 @@ print("Accuracy: {0:.4f}".format(accuracy))
 # We will make our recommendations based on our false positives (i.e. schools that our model
 # thinks should be ranked as 'high_registrations', but for whatever reason, aren't).
 
-# In[17]:
+# In[12]:
 
 
 fp_df = run_model_get_ordered_predictions(best_forest, train_data, test_data,
