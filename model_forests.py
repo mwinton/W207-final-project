@@ -283,10 +283,9 @@ print("Average F1 Score: {0:.4f}".format(f1))
 print("Accuracy: {0:.4f}".format(accuracy))
 
 
-# ### Recommendations Based on False Positives
+# ### Recommendations Based on Opportunity for Engaging with Black/Hispanic Student Populations
 # 
-# We will make our recommendations based on our false positives (i.e. schools that our model
-# thinks should be ranked as 'high_registrations', but for whatever reason, aren't).
+# We will make our final recommendations based on the ranking methods described in our [overview notebook](final_project_overview.ipynb) that seek to identify the greatest opportunities for increasing SHSAT registrations at schools with high black and hispanic populations.
 
 # In[12]:
 
