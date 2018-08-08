@@ -60,7 +60,7 @@
 # 3. [Class Size Notebook](prep_class_sizes.ipynb)
 # 4. [Gifted & Talented Web Scraping Script](sel_scrape.py)
 # 
-# Next we load the resulting CSV files in a [Merge Notebook](prep_merge.ipynb) to join our cleaned data into one master dataset, resolve issues with missing values, and save as [combined_data.csv](data_merged/combined_data.csv).
+# Next we load the resulting CSV files in a [Merge Notebook](prep_merge.ipynb) to join our cleaned data into one master dataset, resolve issues with missing values, and save as [combined_data_2018-07-30.csv](data_merged/combined_data_2018-07-30.csv).
 
 # ## Highlights of Exploratory Data Analysis
 
