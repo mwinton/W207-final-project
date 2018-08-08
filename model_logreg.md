@@ -1,0 +1,8081 @@
+
+# Logistic Regression Notebook
+[Return to project overview](final_project_overview.ipynb)
+
+### Andrew Larimer, Deepak Nagaraj, Daniel Olmstead, Michael Winton (W207-4-Summer 2018 Final Project)
+
+
+```python
+# import necessary libraries
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import util
+from util import our_train_test_split
+
+# set default options
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', 200)
+
+# Inline plots are commented out in cells to conserve rendering on Github.  
+# Images will be saved and displayed in markdown.
+%matplotlib inline
+```
+
+## Load data and split class labels into separate array
+
+Our utility function reads the merged dataset, imputes the column mean for missing numeric values, and then performs a stratified train-test split.
+
+
+```python
+# read the "production" version of the cleaned & merged dataset
+train_data_orig, test_data_orig, train_labels, test_labels = util.read_data(do_imputation=True)
+print(train_data_orig.shape)
+print(train_labels.shape)
+```
+
+    Train: 371 observations (positive class fraction: 0.232)
+    Test : 93 observations (positive class fraction: 0.226)
+    (371, 75)
+    (371,)
+    
+
+Filter to the columns that we will use in the model.  `district` and `zip`, while numeric, do not hold mathematical meaning and reduce accuracy and interpretability (it makes no sense to say that the higher or lower your district, the more or less likely you are to be a high-registering school).  `school_income_estimate` is too sparse to be be useful.  These columns are dropped from the model.
+
+
+```python
+features_to_keep = [
+                    #'district', 
+                    #'zip',
+                    'community_school', 
+                    'economic_need_index', 
+                    #'school_income_estimate',
+                    'grade_7_enrollment',
+                    'percent_ell', 
+                    'percent_asian', 
+                    'percent_black', 
+                    'percent_hispanic',
+                    'percent_black__hispanic', 
+                    'percent_white', 
+                    'student_attendance_rate',
+                    'percent_of_students_chronically_absent',
+                    'rigorous_instruction_percent', 
+                    'rigorous_instruction_rating',
+                    'collaborative_teachers_percent', 
+                    'collaborative_teachers_rating',
+                    'supportive_environment_percent', 
+                    'supportive_environment_rating',
+                    'effective_school_leadership_percent',
+                    'effective_school_leadership_rating',
+                    'strong_family_community_ties_percent',
+                    'strong_family_community_ties_rating', 
+                    'trust_percent', 
+                    'trust_rating',
+                    'student_achievement_rating', 
+                    'average_ela_proficiency',
+                    'average_math_proficiency', 
+                    'grade_7_ela_all_students_tested',
+                    'grade_7_ela_4s_all_students',
+                    'grade_7_ela_4s_american_indian_or_alaska_native',
+                    'grade_7_ela_4s_black_or_african_american',
+                    'grade_7_ela_4s_hispanic_or_latino',
+                    'grade_7_ela_4s_asian_or_pacific_islander', 
+                    'grade_7_ela_4s_white',
+                    'grade_7_ela_4s_multiracial',
+                    'grade_7_ela_4s_limited_english_proficient',
+                    'grade_7_ela_4s_economically_disadvantaged',
+                    'grade_7_math_all_students_tested', 
+                    'grade_7_math_4s_all_students',
+                    'grade_7_math_4s_american_indian_or_alaska_native',
+                    'grade_7_math_4s_black_or_african_american',
+                    'grade_7_math_4s_hispanic_or_latino',
+                    'grade_7_math_4s_asian_or_pacific_islander', 
+                    'grade_7_math_4s_white',
+                    'grade_7_math_4s_multiracial',
+                    'grade_7_math_4s_limited_english_proficient',
+                    'grade_7_math_4s_economically_disadvantaged',
+                    'sie_provided',
+                    'in_bronx',
+                    'in_brooklyn',
+                    'in_manhattan',
+                    'in_queens',
+                    'in_staten',
+                    'number_of_students_english', 
+                    'number_of_students_math',
+                    'number_of_students_science', 
+                    'number_of_students_social_studies',
+                    'number_of_classes_english', 
+                    'number_of_classes_math',
+                    'number_of_classes_science', 
+                    'number_of_classes_social_studies',
+                    'average_class_size_english', 
+                    'average_class_size_math',
+                    'average_class_size_science',
+                    'average_class_size_social_studies',
+                    'school_pupil_teacher_ratio',
+                    'gifted',
+                    'selective'
+                   ]
+
+train_data = train_data_orig[features_to_keep]
+test_data = test_data_orig[features_to_keep]
+train_data.head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>community_school</th>
+      <th>economic_need_index</th>
+      <th>grade_7_enrollment</th>
+      <th>percent_ell</th>
+      <th>percent_asian</th>
+      <th>percent_black</th>
+      <th>percent_hispanic</th>
+      <th>percent_black__hispanic</th>
+      <th>percent_white</th>
+      <th>student_attendance_rate</th>
+      <th>percent_of_students_chronically_absent</th>
+      <th>rigorous_instruction_percent</th>
+      <th>rigorous_instruction_rating</th>
+      <th>collaborative_teachers_percent</th>
+      <th>collaborative_teachers_rating</th>
+      <th>supportive_environment_percent</th>
+      <th>supportive_environment_rating</th>
+      <th>effective_school_leadership_percent</th>
+      <th>effective_school_leadership_rating</th>
+      <th>strong_family_community_ties_percent</th>
+      <th>strong_family_community_ties_rating</th>
+      <th>trust_percent</th>
+      <th>trust_rating</th>
+      <th>student_achievement_rating</th>
+      <th>average_ela_proficiency</th>
+      <th>average_math_proficiency</th>
+      <th>grade_7_ela_all_students_tested</th>
+      <th>grade_7_ela_4s_all_students</th>
+      <th>grade_7_ela_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_ela_4s_black_or_african_american</th>
+      <th>grade_7_ela_4s_hispanic_or_latino</th>
+      <th>grade_7_ela_4s_asian_or_pacific_islander</th>
+      <th>grade_7_ela_4s_white</th>
+      <th>grade_7_ela_4s_multiracial</th>
+      <th>grade_7_ela_4s_limited_english_proficient</th>
+      <th>grade_7_ela_4s_economically_disadvantaged</th>
+      <th>grade_7_math_all_students_tested</th>
+      <th>grade_7_math_4s_all_students</th>
+      <th>grade_7_math_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_math_4s_black_or_african_american</th>
+      <th>grade_7_math_4s_hispanic_or_latino</th>
+      <th>grade_7_math_4s_asian_or_pacific_islander</th>
+      <th>grade_7_math_4s_white</th>
+      <th>grade_7_math_4s_multiracial</th>
+      <th>grade_7_math_4s_limited_english_proficient</th>
+      <th>grade_7_math_4s_economically_disadvantaged</th>
+      <th>sie_provided</th>
+      <th>in_bronx</th>
+      <th>in_brooklyn</th>
+      <th>in_manhattan</th>
+      <th>in_queens</th>
+      <th>in_staten</th>
+      <th>number_of_students_english</th>
+      <th>number_of_students_math</th>
+      <th>number_of_students_science</th>
+      <th>number_of_students_social_studies</th>
+      <th>number_of_classes_english</th>
+      <th>number_of_classes_math</th>
+      <th>number_of_classes_science</th>
+      <th>number_of_classes_social_studies</th>
+      <th>average_class_size_english</th>
+      <th>average_class_size_math</th>
+      <th>average_class_size_science</th>
+      <th>average_class_size_social_studies</th>
+      <th>school_pupil_teacher_ratio</th>
+      <th>gifted</th>
+      <th>selective</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>421</th>
+      <td>0.0</td>
+      <td>0.708</td>
+      <td>168.0</td>
+      <td>18.0</td>
+      <td>11.0</td>
+      <td>48.0</td>
+      <td>17.0</td>
+      <td>64.0</td>
+      <td>24.0</td>
+      <td>92.0</td>
+      <td>29.0</td>
+      <td>86.0</td>
+      <td>3.0</td>
+      <td>91.0</td>
+      <td>3.0</td>
+      <td>80.0</td>
+      <td>3.0</td>
+      <td>86.0</td>
+      <td>3.0</td>
+      <td>71.0</td>
+      <td>2.0</td>
+      <td>92.0</td>
+      <td>3.0</td>
+      <td>3.0</td>
+      <td>2.32</td>
+      <td>2.41</td>
+      <td>165.0</td>
+      <td>8.0</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>7.0</td>
+      <td>178.0</td>
+      <td>14.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>14.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>767.0</td>
+      <td>606.0</td>
+      <td>765.0</td>
+      <td>622.000000</td>
+      <td>37.0</td>
+      <td>29.0</td>
+      <td>36.0</td>
+      <td>28.000000</td>
+      <td>20.729730</td>
+      <td>20.896552</td>
+      <td>21.2500</td>
+      <td>22.214286</td>
+      <td>12.5</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>344</th>
+      <td>0.0</td>
+      <td>0.667</td>
+      <td>61.0</td>
+      <td>2.0</td>
+      <td>6.0</td>
+      <td>11.0</td>
+      <td>77.0</td>
+      <td>89.0</td>
+      <td>5.0</td>
+      <td>97.0</td>
+      <td>8.0</td>
+      <td>92.0</td>
+      <td>4.0</td>
+      <td>99.0</td>
+      <td>4.0</td>
+      <td>96.0</td>
+      <td>4.0</td>
+      <td>92.0</td>
+      <td>4.0</td>
+      <td>83.0</td>
+      <td>3.0</td>
+      <td>98.0</td>
+      <td>4.0</td>
+      <td>3.0</td>
+      <td>3.28</td>
+      <td>3.47</td>
+      <td>60.0</td>
+      <td>22.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>18.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>20.0</td>
+      <td>60.0</td>
+      <td>19.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>15.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>17.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>330.0</td>
+      <td>180.0</td>
+      <td>180.0</td>
+      <td>180.000000</td>
+      <td>13.0</td>
+      <td>6.0</td>
+      <td>6.0</td>
+      <td>6.000000</td>
+      <td>25.384615</td>
+      <td>30.000000</td>
+      <td>30.0000</td>
+      <td>30.000000</td>
+      <td>23.9</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>279</th>
+      <td>0.0</td>
+      <td>0.780</td>
+      <td>106.0</td>
+      <td>14.0</td>
+      <td>2.0</td>
+      <td>68.0</td>
+      <td>28.0</td>
+      <td>96.0</td>
+      <td>2.0</td>
+      <td>90.0</td>
+      <td>33.0</td>
+      <td>86.0</td>
+      <td>3.0</td>
+      <td>96.0</td>
+      <td>3.0</td>
+      <td>83.0</td>
+      <td>3.0</td>
+      <td>93.0</td>
+      <td>4.0</td>
+      <td>80.0</td>
+      <td>3.0</td>
+      <td>95.0</td>
+      <td>4.0</td>
+      <td>2.0</td>
+      <td>1.96</td>
+      <td>1.95</td>
+      <td>110.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>113.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>312.0</td>
+      <td>327.0</td>
+      <td>327.0</td>
+      <td>297.000000</td>
+      <td>14.0</td>
+      <td>14.0</td>
+      <td>12.0</td>
+      <td>12.000000</td>
+      <td>22.285714</td>
+      <td>23.357143</td>
+      <td>27.2500</td>
+      <td>24.750000</td>
+      <td>16.7</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>244</th>
+      <td>0.0</td>
+      <td>0.797</td>
+      <td>49.0</td>
+      <td>4.0</td>
+      <td>6.0</td>
+      <td>77.0</td>
+      <td>15.0</td>
+      <td>92.0</td>
+      <td>1.0</td>
+      <td>92.0</td>
+      <td>24.0</td>
+      <td>89.0</td>
+      <td>3.0</td>
+      <td>86.0</td>
+      <td>3.0</td>
+      <td>83.0</td>
+      <td>2.0</td>
+      <td>80.0</td>
+      <td>3.0</td>
+      <td>82.0</td>
+      <td>2.0</td>
+      <td>85.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>2.35</td>
+      <td>2.21</td>
+      <td>57.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>57.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>284.0</td>
+      <td>308.0</td>
+      <td>154.0</td>
+      <td>154.000000</td>
+      <td>13.0</td>
+      <td>14.0</td>
+      <td>7.0</td>
+      <td>7.000000</td>
+      <td>21.846154</td>
+      <td>22.000000</td>
+      <td>22.0000</td>
+      <td>22.000000</td>
+      <td>14.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>379</th>
+      <td>0.0</td>
+      <td>0.796</td>
+      <td>120.0</td>
+      <td>15.0</td>
+      <td>23.0</td>
+      <td>18.0</td>
+      <td>56.0</td>
+      <td>74.0</td>
+      <td>1.0</td>
+      <td>92.0</td>
+      <td>29.0</td>
+      <td>93.0</td>
+      <td>3.0</td>
+      <td>95.0</td>
+      <td>3.0</td>
+      <td>80.0</td>
+      <td>2.0</td>
+      <td>93.0</td>
+      <td>4.0</td>
+      <td>79.0</td>
+      <td>3.0</td>
+      <td>91.0</td>
+      <td>3.0</td>
+      <td>2.0</td>
+      <td>2.23</td>
+      <td>2.17</td>
+      <td>102.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>101.0</td>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>49.0</td>
+      <td>331.0</td>
+      <td>383.0</td>
+      <td>425.537079</td>
+      <td>2.0</td>
+      <td>14.0</td>
+      <td>16.0</td>
+      <td>17.116854</td>
+      <td>24.500000</td>
+      <td>23.642857</td>
+      <td>23.9375</td>
+      <td>24.057379</td>
+      <td>13.3</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+## Hyperparameter Tuning
+Find the optimal C-score and penalty using GridSearchCV.
+
+
+```python
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+
+scaler = StandardScaler()
+train_data_scaled = scaler.fit_transform(train_data)
+
+lr = LogisticRegression(random_state=207)
+penalty = ['l1', 'l2']
+C = [0.01, 0.05, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 1.000, 2.000, 3.000, 4.000]
+hyperparameters = dict(C=C, penalty=penalty)
+clf = GridSearchCV(lr, hyperparameters, cv=5, verbose=0)
+best_model = clf.fit(train_data_scaled, train_labels)
+best_penalty = best_model.best_estimator_.get_params()['penalty']
+best_c = best_model.best_estimator_.get_params()['C']
+print('Best Penalty:', best_penalty)
+print('Best C:', best_c)
+```
+
+    Best Penalty: l2
+    Best C: 0.05
+    
+
+## Make Pipeline and K-fold validation
+Using five k-folds and the optimal hyperparameters from above, determine the overall accuracy and F1 score for the model.
+
+
+```python
+from sklearn.model_selection import cross_val_score, cross_validate
+from sklearn.pipeline import make_pipeline
+
+pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c, penalty=best_penalty, random_state=207))
+k_folds = 5
+cv_scores = cross_validate(pipe, train_data, train_labels, cv=k_folds, scoring=['accuracy','f1'])
+cv_f1 = cv_scores['test_f1'].mean()
+util.print_cv_results(cv_scores)
+```
+
+    With 5-fold cross-validation, accuracy is: 0.846 (95% CI from 0.771 to 0.921).
+    The F1 score is: 0.660 (95% CI from 0.467 to 0.853).
+    
+
+## Apply model to the test set
+Check for overfitting by applying the model to the test set and reporting back accuracy and F1 score.
+
+
+```python
+import sklearn.metrics as metrics
+
+lr = LogisticRegression(C=best_c, penalty=best_penalty, random_state=207)
+train_data_scaled, test_data_scaled = scaler.fit_transform(train_data), scaler.fit_transform(test_data)
+lr.fit(train_data_scaled, train_labels)
+predicted_labels = lr.predict(test_data_scaled)
+lr_score_accuracy = metrics.accuracy_score(test_labels, predicted_labels)
+lr_score_f1 = metrics.f1_score(test_labels, predicted_labels)
+
+print("On the test set, the model has an accuracy of {:.2f}% and an F1 score of {:.2f}."
+     .format(lr_score_accuracy*100, lr_score_f1))
+
+```
+
+    On the test set, the model has an accuracy of 88.17% and an F1 score of 0.72.
+    
+
+## Examine coefficients
+For a better understanding of the model, including which factors are most important for predicting a high-registering school, we turn to an analysis of the model coefficients.  As the goal here is not prediction but comprehension, the first step is to recombine the data into a set that contains 100% of the schools.
+
+
+```python
+# recombine train and test data into an aggregate dataset
+X_orig = pd.concat([train_data_orig, test_data_orig])
+X_i = pd.concat([train_data, test_data])
+y = np.concatenate((train_labels,test_labels))
+X_pos = X_i[y==1]
+X_neg = X_i[y==0]
+```
+
+The next step is to determine which coefficients are the most influential in determining the model's predictions.  These values can change quite a bit from one training set to the next, so to get a better sense of their expected value, we run a Repeated Stratified K-Fold validation, which runs five iterations of training the model on 4/5ths of the data, and then predicting the final 1/5th.  The combinations are then re-randomized, and the validation is run a total of 10 times.  This results in 50 calculations of the coefficients, which are then averaged and sorted to see which are the most influential in predicting a high registration school (positive coefficient), and which are the most influential in predicting a low-registration school (negative coefficient).
+
+While we are running through all these trials, we also collect some other information:
+ - The set of predictions, 1's or 0's, for the fifth of the model that gets tested on each iteration.  We use this as a measure of confidence in the model's predictions for the final recommendation.
+ - The set of probabilities that each school will be a 1 or a 0, which are then averaged.  We use these to sort the schools by confidence later in the coefficient analysis.
+
+
+```python
+from sklearn.model_selection import RepeatedStratifiedKFold
+
+# Scale the full dataset and make numpy arrays of both the data and labels
+np_train_data = np.array(scaler.fit_transform(X_i))
+np_train_labels = y
+
+# Run k-fold cross-validation with 5 folds 10 times, which means every school is predicted 10 times.
+folds = 5
+repeats = 10
+rskf = RepeatedStratifiedKFold(n_splits=folds, n_repeats= repeats, random_state=207)
+fold_list = []
+
+# Build multiple empty dataframes from the results, with columns for each k-fold
+for f in range(1, (folds*repeats)+1):
+    fold_list.append('k{}'.format(f))
+# This contains the coefficients for every feature in every test
+coefs = pd.DataFrame(index=train_data.columns, columns=fold_list)
+# This contains the predicted value for each school tested (20% of the dataset each time)
+predictions = pd.DataFrame(index=X_i.index, columns = fold_list)
+# This contains the probabilities that each tested school will be a 0 or a 1, for use in later analysis
+probs_0 = pd.DataFrame(index=X_i.index, columns = fold_list)
+probs_1 = pd.DataFrame(index=X_i.index, columns = fold_list)
+
+# Iterate through the Repeated Stratified K Fold, and and fill out the DataFrames
+counter = 1
+for train, test in rskf.split(np_train_data, np_train_labels):
+    log = LogisticRegression(C=best_c, penalty=best_penalty, random_state=207)
+    log.fit(np_train_data[train], np_train_labels[train])
+    predicted_labels = log.predict(np_train_data[test])
+    predicted_probs = log.predict_proba(np_train_data[test])
+    coefs['k{}'.format(counter)] = log.coef_[0]
+    predictions.iloc[test, counter-1] = predicted_labels
+    probs_0.iloc[test, counter-1] = predicted_probs[:,0]
+    probs_1.iloc[test, counter-1] = predicted_probs[:,1]
+    counter += 1
+
+# Find the average coefficient across all 50 regressions, and sort descending
+coefs['avg'] = coefs.mean(axis=1)
+sorted_coefs = coefs.sort_values(by='avg', ascending=False)
+sorted_coefs
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>k1</th>
+      <th>k2</th>
+      <th>k3</th>
+      <th>k4</th>
+      <th>k5</th>
+      <th>k6</th>
+      <th>k7</th>
+      <th>k8</th>
+      <th>k9</th>
+      <th>k10</th>
+      <th>k11</th>
+      <th>k12</th>
+      <th>k13</th>
+      <th>k14</th>
+      <th>k15</th>
+      <th>k16</th>
+      <th>k17</th>
+      <th>k18</th>
+      <th>k19</th>
+      <th>k20</th>
+      <th>k21</th>
+      <th>k22</th>
+      <th>k23</th>
+      <th>k24</th>
+      <th>k25</th>
+      <th>k26</th>
+      <th>k27</th>
+      <th>k28</th>
+      <th>k29</th>
+      <th>k30</th>
+      <th>k31</th>
+      <th>k32</th>
+      <th>k33</th>
+      <th>k34</th>
+      <th>k35</th>
+      <th>k36</th>
+      <th>k37</th>
+      <th>k38</th>
+      <th>k39</th>
+      <th>k40</th>
+      <th>k41</th>
+      <th>k42</th>
+      <th>k43</th>
+      <th>k44</th>
+      <th>k45</th>
+      <th>k46</th>
+      <th>k47</th>
+      <th>k48</th>
+      <th>k49</th>
+      <th>k50</th>
+      <th>avg</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>average_math_proficiency</th>
+      <td>0.210923</td>
+      <td>0.313610</td>
+      <td>0.222837</td>
+      <td>0.272852</td>
+      <td>0.266627</td>
+      <td>0.258099</td>
+      <td>0.248020</td>
+      <td>0.282527</td>
+      <td>0.219812</td>
+      <td>0.264421</td>
+      <td>0.250260</td>
+      <td>0.212538</td>
+      <td>0.227001</td>
+      <td>0.264184</td>
+      <td>0.302466</td>
+      <td>0.248589</td>
+      <td>0.271425</td>
+      <td>0.248545</td>
+      <td>0.234721</td>
+      <td>0.271522</td>
+      <td>0.255843</td>
+      <td>0.261069</td>
+      <td>0.205463</td>
+      <td>0.265013</td>
+      <td>0.270519</td>
+      <td>0.254472</td>
+      <td>0.225032</td>
+      <td>0.240435</td>
+      <td>0.294747</td>
+      <td>0.245187</td>
+      <td>0.225432</td>
+      <td>0.228765</td>
+      <td>0.235614</td>
+      <td>0.262066</td>
+      <td>0.326836</td>
+      <td>0.220406</td>
+      <td>0.240951</td>
+      <td>0.275371</td>
+      <td>0.269595</td>
+      <td>0.268212</td>
+      <td>0.256930</td>
+      <td>0.273256</td>
+      <td>0.217305</td>
+      <td>0.272184</td>
+      <td>0.240670</td>
+      <td>0.245976</td>
+      <td>0.255134</td>
+      <td>0.239988</td>
+      <td>0.242015</td>
+      <td>0.276092</td>
+      <td>0.253631</td>
+    </tr>
+    <tr>
+      <th>percent_asian</th>
+      <td>0.238551</td>
+      <td>0.250576</td>
+      <td>0.274277</td>
+      <td>0.210391</td>
+      <td>0.271433</td>
+      <td>0.217486</td>
+      <td>0.270393</td>
+      <td>0.220650</td>
+      <td>0.218872</td>
+      <td>0.327783</td>
+      <td>0.276883</td>
+      <td>0.213154</td>
+      <td>0.213322</td>
+      <td>0.292906</td>
+      <td>0.250304</td>
+      <td>0.267351</td>
+      <td>0.295264</td>
+      <td>0.264709</td>
+      <td>0.223333</td>
+      <td>0.201233</td>
+      <td>0.267099</td>
+      <td>0.251056</td>
+      <td>0.274726</td>
+      <td>0.241484</td>
+      <td>0.212771</td>
+      <td>0.334150</td>
+      <td>0.206242</td>
+      <td>0.223076</td>
+      <td>0.265057</td>
+      <td>0.251025</td>
+      <td>0.229819</td>
+      <td>0.195125</td>
+      <td>0.218480</td>
+      <td>0.279063</td>
+      <td>0.337456</td>
+      <td>0.267979</td>
+      <td>0.248153</td>
+      <td>0.215477</td>
+      <td>0.284804</td>
+      <td>0.246002</td>
+      <td>0.210172</td>
+      <td>0.294865</td>
+      <td>0.212192</td>
+      <td>0.284594</td>
+      <td>0.260393</td>
+      <td>0.224956</td>
+      <td>0.268440</td>
+      <td>0.205647</td>
+      <td>0.298419</td>
+      <td>0.245853</td>
+      <td>0.251069</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_hispanic_or_latino</th>
+      <td>0.242705</td>
+      <td>0.250241</td>
+      <td>0.227499</td>
+      <td>0.247679</td>
+      <td>0.213303</td>
+      <td>0.208422</td>
+      <td>0.214482</td>
+      <td>0.238647</td>
+      <td>0.291248</td>
+      <td>0.257839</td>
+      <td>0.282501</td>
+      <td>0.208184</td>
+      <td>0.212444</td>
+      <td>0.250628</td>
+      <td>0.248162</td>
+      <td>0.315799</td>
+      <td>0.319575</td>
+      <td>0.149637</td>
+      <td>0.261446</td>
+      <td>0.183878</td>
+      <td>0.246463</td>
+      <td>0.242441</td>
+      <td>0.139408</td>
+      <td>0.264749</td>
+      <td>0.326231</td>
+      <td>0.203916</td>
+      <td>0.269196</td>
+      <td>0.288363</td>
+      <td>0.195848</td>
+      <td>0.272617</td>
+      <td>0.219978</td>
+      <td>0.222895</td>
+      <td>0.216313</td>
+      <td>0.249794</td>
+      <td>0.282323</td>
+      <td>0.093617</td>
+      <td>0.296288</td>
+      <td>0.226593</td>
+      <td>0.264627</td>
+      <td>0.321660</td>
+      <td>0.284809</td>
+      <td>0.214315</td>
+      <td>0.175893</td>
+      <td>0.252630</td>
+      <td>0.275075</td>
+      <td>0.243984</td>
+      <td>0.311789</td>
+      <td>0.206055</td>
+      <td>0.267975</td>
+      <td>0.191151</td>
+      <td>0.241826</td>
+    </tr>
+    <tr>
+      <th>average_ela_proficiency</th>
+      <td>0.224323</td>
+      <td>0.287583</td>
+      <td>0.194077</td>
+      <td>0.215134</td>
+      <td>0.196744</td>
+      <td>0.258086</td>
+      <td>0.222750</td>
+      <td>0.221515</td>
+      <td>0.161775</td>
+      <td>0.249172</td>
+      <td>0.185852</td>
+      <td>0.212449</td>
+      <td>0.162151</td>
+      <td>0.217580</td>
+      <td>0.325738</td>
+      <td>0.219904</td>
+      <td>0.223623</td>
+      <td>0.222237</td>
+      <td>0.235560</td>
+      <td>0.202924</td>
+      <td>0.208109</td>
+      <td>0.229048</td>
+      <td>0.187499</td>
+      <td>0.231517</td>
+      <td>0.247262</td>
+      <td>0.196299</td>
+      <td>0.219194</td>
+      <td>0.245663</td>
+      <td>0.251365</td>
+      <td>0.193083</td>
+      <td>0.259687</td>
+      <td>0.187477</td>
+      <td>0.178674</td>
+      <td>0.213397</td>
+      <td>0.278816</td>
+      <td>0.178945</td>
+      <td>0.193086</td>
+      <td>0.244450</td>
+      <td>0.232500</td>
+      <td>0.252961</td>
+      <td>0.223452</td>
+      <td>0.215101</td>
+      <td>0.217491</td>
+      <td>0.244345</td>
+      <td>0.202806</td>
+      <td>0.221414</td>
+      <td>0.226194</td>
+      <td>0.224411</td>
+      <td>0.200882</td>
+      <td>0.217281</td>
+      <td>0.221232</td>
+    </tr>
+    <tr>
+      <th>in_brooklyn</th>
+      <td>0.190386</td>
+      <td>0.232668</td>
+      <td>0.185739</td>
+      <td>0.207175</td>
+      <td>0.173928</td>
+      <td>0.249936</td>
+      <td>0.192896</td>
+      <td>0.210955</td>
+      <td>0.169745</td>
+      <td>0.172801</td>
+      <td>0.165608</td>
+      <td>0.189999</td>
+      <td>0.220889</td>
+      <td>0.200066</td>
+      <td>0.224486</td>
+      <td>0.142006</td>
+      <td>0.219379</td>
+      <td>0.229537</td>
+      <td>0.187393</td>
+      <td>0.217047</td>
+      <td>0.165501</td>
+      <td>0.159569</td>
+      <td>0.231603</td>
+      <td>0.224023</td>
+      <td>0.206730</td>
+      <td>0.139287</td>
+      <td>0.186018</td>
+      <td>0.195959</td>
+      <td>0.248879</td>
+      <td>0.214598</td>
+      <td>0.225895</td>
+      <td>0.190992</td>
+      <td>0.198649</td>
+      <td>0.121451</td>
+      <td>0.267214</td>
+      <td>0.195961</td>
+      <td>0.230442</td>
+      <td>0.204528</td>
+      <td>0.172772</td>
+      <td>0.193916</td>
+      <td>0.196646</td>
+      <td>0.250939</td>
+      <td>0.198563</td>
+      <td>0.169385</td>
+      <td>0.181307</td>
+      <td>0.192046</td>
+      <td>0.167766</td>
+      <td>0.222818</td>
+      <td>0.152774</td>
+      <td>0.253159</td>
+      <td>0.198841</td>
+    </tr>
+    <tr>
+      <th>strong_family_community_ties_percent</th>
+      <td>0.194496</td>
+      <td>0.170148</td>
+      <td>0.180974</td>
+      <td>0.260632</td>
+      <td>0.159708</td>
+      <td>0.154519</td>
+      <td>0.216415</td>
+      <td>0.284999</td>
+      <td>0.193521</td>
+      <td>0.121396</td>
+      <td>0.213255</td>
+      <td>0.133237</td>
+      <td>0.251726</td>
+      <td>0.158986</td>
+      <td>0.208894</td>
+      <td>0.259146</td>
+      <td>0.158562</td>
+      <td>0.169530</td>
+      <td>0.200497</td>
+      <td>0.190380</td>
+      <td>0.179155</td>
+      <td>0.174008</td>
+      <td>0.180194</td>
+      <td>0.159350</td>
+      <td>0.276034</td>
+      <td>0.175224</td>
+      <td>0.234623</td>
+      <td>0.202781</td>
+      <td>0.170296</td>
+      <td>0.203513</td>
+      <td>0.160261</td>
+      <td>0.180932</td>
+      <td>0.240914</td>
+      <td>0.170541</td>
+      <td>0.218386</td>
+      <td>0.196241</td>
+      <td>0.155094</td>
+      <td>0.178635</td>
+      <td>0.153160</td>
+      <td>0.294673</td>
+      <td>0.221118</td>
+      <td>0.127030</td>
+      <td>0.263691</td>
+      <td>0.220614</td>
+      <td>0.139514</td>
+      <td>0.177492</td>
+      <td>0.220434</td>
+      <td>0.228000</td>
+      <td>0.185598</td>
+      <td>0.144726</td>
+      <td>0.194265</td>
+    </tr>
+    <tr>
+      <th>sie_provided</th>
+      <td>0.245102</td>
+      <td>0.156369</td>
+      <td>0.193633</td>
+      <td>0.175140</td>
+      <td>0.185691</td>
+      <td>0.135847</td>
+      <td>0.168651</td>
+      <td>0.263927</td>
+      <td>0.182035</td>
+      <td>0.203038</td>
+      <td>0.132955</td>
+      <td>0.233985</td>
+      <td>0.180119</td>
+      <td>0.211129</td>
+      <td>0.201758</td>
+      <td>0.202466</td>
+      <td>0.138474</td>
+      <td>0.197168</td>
+      <td>0.209864</td>
+      <td>0.215613</td>
+      <td>0.155466</td>
+      <td>0.163605</td>
+      <td>0.256328</td>
+      <td>0.217561</td>
+      <td>0.182526</td>
+      <td>0.202957</td>
+      <td>0.176028</td>
+      <td>0.164161</td>
+      <td>0.202342</td>
+      <td>0.222076</td>
+      <td>0.222504</td>
+      <td>0.223413</td>
+      <td>0.209708</td>
+      <td>0.159893</td>
+      <td>0.149629</td>
+      <td>0.158979</td>
+      <td>0.182007</td>
+      <td>0.184810</td>
+      <td>0.201851</td>
+      <td>0.227642</td>
+      <td>0.164787</td>
+      <td>0.169049</td>
+      <td>0.232358</td>
+      <td>0.242239</td>
+      <td>0.163399</td>
+      <td>0.165771</td>
+      <td>0.205598</td>
+      <td>0.191041</td>
+      <td>0.201902</td>
+      <td>0.203302</td>
+      <td>0.192718</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_all_students</th>
+      <td>0.141225</td>
+      <td>0.154380</td>
+      <td>0.236143</td>
+      <td>0.154951</td>
+      <td>0.206603</td>
+      <td>0.183679</td>
+      <td>0.240581</td>
+      <td>0.161481</td>
+      <td>0.171351</td>
+      <td>0.138221</td>
+      <td>0.155081</td>
+      <td>0.151802</td>
+      <td>0.189003</td>
+      <td>0.187250</td>
+      <td>0.221029</td>
+      <td>0.163522</td>
+      <td>0.199313</td>
+      <td>0.224333</td>
+      <td>0.165578</td>
+      <td>0.153997</td>
+      <td>0.154195</td>
+      <td>0.181430</td>
+      <td>0.255352</td>
+      <td>0.179449</td>
+      <td>0.134153</td>
+      <td>0.174595</td>
+      <td>0.148537</td>
+      <td>0.187857</td>
+      <td>0.217425</td>
+      <td>0.169937</td>
+      <td>0.178932</td>
+      <td>0.275663</td>
+      <td>0.139965</td>
+      <td>0.144459</td>
+      <td>0.172074</td>
+      <td>0.226311</td>
+      <td>0.171231</td>
+      <td>0.159622</td>
+      <td>0.193282</td>
+      <td>0.158645</td>
+      <td>0.170161</td>
+      <td>0.153279</td>
+      <td>0.235568</td>
+      <td>0.180051</td>
+      <td>0.160753</td>
+      <td>0.135654</td>
+      <td>0.195760</td>
+      <td>0.279157</td>
+      <td>0.152596</td>
+      <td>0.152241</td>
+      <td>0.180757</td>
+    </tr>
+    <tr>
+      <th>student_attendance_rate</th>
+      <td>0.220538</td>
+      <td>0.149783</td>
+      <td>0.123874</td>
+      <td>0.132946</td>
+      <td>0.196818</td>
+      <td>0.136444</td>
+      <td>0.196896</td>
+      <td>0.147936</td>
+      <td>0.144892</td>
+      <td>0.178332</td>
+      <td>0.186213</td>
+      <td>0.192548</td>
+      <td>0.159636</td>
+      <td>0.136472</td>
+      <td>0.137361</td>
+      <td>0.162141</td>
+      <td>0.183241</td>
+      <td>0.182217</td>
+      <td>0.165441</td>
+      <td>0.128490</td>
+      <td>0.206957</td>
+      <td>0.134491</td>
+      <td>0.132250</td>
+      <td>0.149678</td>
+      <td>0.191985</td>
+      <td>0.184327</td>
+      <td>0.168294</td>
+      <td>0.165660</td>
+      <td>0.137934</td>
+      <td>0.165728</td>
+      <td>0.168913</td>
+      <td>0.167365</td>
+      <td>0.159597</td>
+      <td>0.142510</td>
+      <td>0.185009</td>
+      <td>0.206054</td>
+      <td>0.143934</td>
+      <td>0.178282</td>
+      <td>0.150858</td>
+      <td>0.136235</td>
+      <td>0.157852</td>
+      <td>0.189036</td>
+      <td>0.168245</td>
+      <td>0.151648</td>
+      <td>0.135190</td>
+      <td>0.212306</td>
+      <td>0.117395</td>
+      <td>0.136386</td>
+      <td>0.152590</td>
+      <td>0.195855</td>
+      <td>0.163096</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_all_students</th>
+      <td>0.147903</td>
+      <td>0.141125</td>
+      <td>0.169398</td>
+      <td>0.174034</td>
+      <td>0.170377</td>
+      <td>0.144606</td>
+      <td>0.179586</td>
+      <td>0.170756</td>
+      <td>0.155045</td>
+      <td>0.145485</td>
+      <td>0.149528</td>
+      <td>0.132145</td>
+      <td>0.182331</td>
+      <td>0.155442</td>
+      <td>0.177022</td>
+      <td>0.177654</td>
+      <td>0.151862</td>
+      <td>0.149070</td>
+      <td>0.150641</td>
+      <td>0.181967</td>
+      <td>0.182950</td>
+      <td>0.149386</td>
+      <td>0.152157</td>
+      <td>0.162038</td>
+      <td>0.146024</td>
+      <td>0.164432</td>
+      <td>0.134811</td>
+      <td>0.154441</td>
+      <td>0.197087</td>
+      <td>0.135608</td>
+      <td>0.122824</td>
+      <td>0.184791</td>
+      <td>0.201089</td>
+      <td>0.121983</td>
+      <td>0.163700</td>
+      <td>0.179635</td>
+      <td>0.136645</td>
+      <td>0.170938</td>
+      <td>0.165586</td>
+      <td>0.147636</td>
+      <td>0.150880</td>
+      <td>0.148175</td>
+      <td>0.189729</td>
+      <td>0.164778</td>
+      <td>0.132574</td>
+      <td>0.148578</td>
+      <td>0.166599</td>
+      <td>0.196404</td>
+      <td>0.137002</td>
+      <td>0.166289</td>
+      <td>0.159615</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_asian_or_pacific_islander</th>
+      <td>0.132822</td>
+      <td>0.151050</td>
+      <td>0.187432</td>
+      <td>0.187549</td>
+      <td>0.127431</td>
+      <td>0.226544</td>
+      <td>0.167298</td>
+      <td>0.133895</td>
+      <td>0.165694</td>
+      <td>0.117142</td>
+      <td>0.134907</td>
+      <td>0.124840</td>
+      <td>0.171102</td>
+      <td>0.193437</td>
+      <td>0.178649</td>
+      <td>0.123001</td>
+      <td>0.206458</td>
+      <td>0.162957</td>
+      <td>0.175080</td>
+      <td>0.120131</td>
+      <td>0.127975</td>
+      <td>0.172949</td>
+      <td>0.246131</td>
+      <td>0.145715</td>
+      <td>0.095208</td>
+      <td>0.177450</td>
+      <td>0.160426</td>
+      <td>0.182587</td>
+      <td>0.136472</td>
+      <td>0.132800</td>
+      <td>0.133993</td>
+      <td>0.228218</td>
+      <td>0.121481</td>
+      <td>0.153356</td>
+      <td>0.177203</td>
+      <td>0.188158</td>
+      <td>0.120066</td>
+      <td>0.117616</td>
+      <td>0.268534</td>
+      <td>0.124484</td>
+      <td>0.167745</td>
+      <td>0.097517</td>
+      <td>0.193027</td>
+      <td>0.167746</td>
+      <td>0.149793</td>
+      <td>0.112498</td>
+      <td>0.187783</td>
+      <td>0.225359</td>
+      <td>0.160560</td>
+      <td>0.104633</td>
+      <td>0.159298</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_asian_or_pacific_islander</th>
+      <td>0.134482</td>
+      <td>0.149131</td>
+      <td>0.165086</td>
+      <td>0.231317</td>
+      <td>0.112664</td>
+      <td>0.192884</td>
+      <td>0.144903</td>
+      <td>0.172757</td>
+      <td>0.154648</td>
+      <td>0.139940</td>
+      <td>0.158780</td>
+      <td>0.135932</td>
+      <td>0.192262</td>
+      <td>0.146934</td>
+      <td>0.167217</td>
+      <td>0.211670</td>
+      <td>0.154701</td>
+      <td>0.126807</td>
+      <td>0.156002</td>
+      <td>0.146460</td>
+      <td>0.175266</td>
+      <td>0.147468</td>
+      <td>0.153120</td>
+      <td>0.156658</td>
+      <td>0.152249</td>
+      <td>0.180681</td>
+      <td>0.126201</td>
+      <td>0.156488</td>
+      <td>0.188237</td>
+      <td>0.139163</td>
+      <td>0.152227</td>
+      <td>0.164227</td>
+      <td>0.181601</td>
+      <td>0.134979</td>
+      <td>0.162371</td>
+      <td>0.185835</td>
+      <td>0.122380</td>
+      <td>0.129768</td>
+      <td>0.204318</td>
+      <td>0.165198</td>
+      <td>0.166262</td>
+      <td>0.136056</td>
+      <td>0.177505</td>
+      <td>0.164140</td>
+      <td>0.128796</td>
+      <td>0.161556</td>
+      <td>0.162379</td>
+      <td>0.215851</td>
+      <td>0.152853</td>
+      <td>0.098437</td>
+      <td>0.158737</td>
+    </tr>
+    <tr>
+      <th>in_bronx</th>
+      <td>0.153464</td>
+      <td>0.105553</td>
+      <td>0.143315</td>
+      <td>0.085366</td>
+      <td>0.198821</td>
+      <td>0.104189</td>
+      <td>0.118235</td>
+      <td>0.167898</td>
+      <td>0.116858</td>
+      <td>0.183137</td>
+      <td>0.186730</td>
+      <td>0.156108</td>
+      <td>0.146718</td>
+      <td>0.132870</td>
+      <td>0.068723</td>
+      <td>0.174738</td>
+      <td>0.117484</td>
+      <td>0.169624</td>
+      <td>0.107113</td>
+      <td>0.125002</td>
+      <td>0.176445</td>
+      <td>0.111554</td>
+      <td>0.108456</td>
+      <td>0.151640</td>
+      <td>0.149768</td>
+      <td>0.156785</td>
+      <td>0.119010</td>
+      <td>0.177045</td>
+      <td>0.109861</td>
+      <td>0.133226</td>
+      <td>0.135791</td>
+      <td>0.134328</td>
+      <td>0.152532</td>
+      <td>0.146327</td>
+      <td>0.118366</td>
+      <td>0.174054</td>
+      <td>0.106247</td>
+      <td>0.167858</td>
+      <td>0.119574</td>
+      <td>0.127506</td>
+      <td>0.171954</td>
+      <td>0.141874</td>
+      <td>0.093417</td>
+      <td>0.171598</td>
+      <td>0.111061</td>
+      <td>0.116109</td>
+      <td>0.171560</td>
+      <td>0.089764</td>
+      <td>0.200809</td>
+      <td>0.114117</td>
+      <td>0.138412</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_black_or_african_american</th>
+      <td>0.246179</td>
+      <td>0.043363</td>
+      <td>0.120645</td>
+      <td>0.063979</td>
+      <td>0.070520</td>
+      <td>0.074605</td>
+      <td>0.125553</td>
+      <td>0.050588</td>
+      <td>0.096262</td>
+      <td>0.233071</td>
+      <td>0.124308</td>
+      <td>0.063549</td>
+      <td>0.076748</td>
+      <td>0.124157</td>
+      <td>0.166026</td>
+      <td>0.039570</td>
+      <td>0.107210</td>
+      <td>0.107416</td>
+      <td>0.216456</td>
+      <td>0.063853</td>
+      <td>0.128580</td>
+      <td>0.147760</td>
+      <td>0.144791</td>
+      <td>0.047483</td>
+      <td>0.086653</td>
+      <td>0.068570</td>
+      <td>0.217551</td>
+      <td>0.001425</td>
+      <td>0.155967</td>
+      <td>0.125678</td>
+      <td>0.103880</td>
+      <td>0.022385</td>
+      <td>0.102356</td>
+      <td>0.103905</td>
+      <td>0.166242</td>
+      <td>0.129327</td>
+      <td>0.043822</td>
+      <td>0.062169</td>
+      <td>0.165400</td>
+      <td>0.133388</td>
+      <td>0.040009</td>
+      <td>0.151086</td>
+      <td>0.105280</td>
+      <td>0.113124</td>
+      <td>0.134757</td>
+      <td>0.063803</td>
+      <td>0.116215</td>
+      <td>0.095387</td>
+      <td>0.115054</td>
+      <td>0.167542</td>
+      <td>0.109473</td>
+    </tr>
+    <tr>
+      <th>gifted</th>
+      <td>0.119190</td>
+      <td>0.114919</td>
+      <td>0.152876</td>
+      <td>0.102862</td>
+      <td>0.053547</td>
+      <td>0.039078</td>
+      <td>0.092632</td>
+      <td>0.067027</td>
+      <td>0.188817</td>
+      <td>0.168355</td>
+      <td>0.146672</td>
+      <td>0.029991</td>
+      <td>0.127181</td>
+      <td>0.121501</td>
+      <td>0.092477</td>
+      <td>0.158339</td>
+      <td>0.107863</td>
+      <td>0.014121</td>
+      <td>0.086022</td>
+      <td>0.160022</td>
+      <td>0.067840</td>
+      <td>0.185466</td>
+      <td>0.121928</td>
+      <td>0.059402</td>
+      <td>0.107129</td>
+      <td>0.129156</td>
+      <td>0.093083</td>
+      <td>0.064731</td>
+      <td>0.203597</td>
+      <td>0.064910</td>
+      <td>0.180564</td>
+      <td>0.108113</td>
+      <td>0.042171</td>
+      <td>0.139816</td>
+      <td>0.067703</td>
+      <td>0.073502</td>
+      <td>0.199068</td>
+      <td>0.100391</td>
+      <td>0.093218</td>
+      <td>0.068990</td>
+      <td>0.121181</td>
+      <td>0.124557</td>
+      <td>0.114778</td>
+      <td>0.109194</td>
+      <td>0.077886</td>
+      <td>0.050528</td>
+      <td>0.119268</td>
+      <td>0.128428</td>
+      <td>0.135253</td>
+      <td>0.097559</td>
+      <td>0.107858</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_economically_disadvantaged</th>
+      <td>0.107453</td>
+      <td>0.067990</td>
+      <td>0.102401</td>
+      <td>0.198930</td>
+      <td>0.045226</td>
+      <td>0.077670</td>
+      <td>0.100343</td>
+      <td>0.161035</td>
+      <td>0.074599</td>
+      <td>0.102919</td>
+      <td>0.101991</td>
+      <td>0.081904</td>
+      <td>0.138492</td>
+      <td>0.041898</td>
+      <td>0.143159</td>
+      <td>0.163895</td>
+      <td>0.053216</td>
+      <td>0.076753</td>
+      <td>0.108933</td>
+      <td>0.088914</td>
+      <td>0.107317</td>
+      <td>0.068346</td>
+      <td>0.083614</td>
+      <td>0.082525</td>
+      <td>0.141780</td>
+      <td>0.115207</td>
+      <td>0.062016</td>
+      <td>0.075192</td>
+      <td>0.169209</td>
+      <td>0.076322</td>
+      <td>0.073529</td>
+      <td>0.095868</td>
+      <td>0.185926</td>
+      <td>0.052492</td>
+      <td>0.099927</td>
+      <td>0.105551</td>
+      <td>0.059671</td>
+      <td>0.093855</td>
+      <td>0.147085</td>
+      <td>0.104703</td>
+      <td>0.102036</td>
+      <td>0.083776</td>
+      <td>0.110174</td>
+      <td>0.093835</td>
+      <td>0.098580</td>
+      <td>0.160522</td>
+      <td>0.050099</td>
+      <td>0.171645</td>
+      <td>0.057757</td>
+      <td>0.073865</td>
+      <td>0.100803</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_limited_english_proficient</th>
+      <td>0.098272</td>
+      <td>0.112481</td>
+      <td>0.094287</td>
+      <td>0.100278</td>
+      <td>0.094941</td>
+      <td>0.103528</td>
+      <td>0.090247</td>
+      <td>0.093484</td>
+      <td>0.110208</td>
+      <td>0.107763</td>
+      <td>0.109892</td>
+      <td>0.099759</td>
+      <td>0.095765</td>
+      <td>0.108261</td>
+      <td>0.092870</td>
+      <td>0.094902</td>
+      <td>0.106870</td>
+      <td>0.094318</td>
+      <td>0.108475</td>
+      <td>0.096007</td>
+      <td>0.103561</td>
+      <td>0.098780</td>
+      <td>0.089909</td>
+      <td>0.103635</td>
+      <td>0.103716</td>
+      <td>0.101106</td>
+      <td>0.092148</td>
+      <td>0.106036</td>
+      <td>0.096363</td>
+      <td>0.102987</td>
+      <td>0.095074</td>
+      <td>0.103852</td>
+      <td>0.089592</td>
+      <td>0.108832</td>
+      <td>0.108483</td>
+      <td>0.101786</td>
+      <td>0.112095</td>
+      <td>0.097800</td>
+      <td>0.086806</td>
+      <td>0.101069</td>
+      <td>0.096112</td>
+      <td>0.102071</td>
+      <td>0.097448</td>
+      <td>0.099258</td>
+      <td>0.106567</td>
+      <td>0.094182</td>
+      <td>0.109165</td>
+      <td>0.089544</td>
+      <td>0.107015</td>
+      <td>0.106356</td>
+      <td>0.100479</td>
+    </tr>
+    <tr>
+      <th>average_class_size_science</th>
+      <td>0.029585</td>
+      <td>0.067132</td>
+      <td>0.125884</td>
+      <td>0.110186</td>
+      <td>0.075451</td>
+      <td>0.092630</td>
+      <td>0.075386</td>
+      <td>0.123260</td>
+      <td>0.089160</td>
+      <td>0.081961</td>
+      <td>0.069697</td>
+      <td>0.089720</td>
+      <td>0.030231</td>
+      <td>0.068186</td>
+      <td>0.194546</td>
+      <td>0.149594</td>
+      <td>0.151456</td>
+      <td>0.083623</td>
+      <td>0.025026</td>
+      <td>0.040295</td>
+      <td>0.032887</td>
+      <td>0.094264</td>
+      <td>0.150335</td>
+      <td>0.070705</td>
+      <td>0.110357</td>
+      <td>0.046903</td>
+      <td>0.106532</td>
+      <td>0.125602</td>
+      <td>0.076472</td>
+      <td>0.094341</td>
+      <td>0.039932</td>
+      <td>0.136655</td>
+      <td>0.028418</td>
+      <td>0.062170</td>
+      <td>0.153077</td>
+      <td>0.053402</td>
+      <td>0.110201</td>
+      <td>0.050812</td>
+      <td>0.049344</td>
+      <td>0.162867</td>
+      <td>0.054981</td>
+      <td>0.141266</td>
+      <td>0.028331</td>
+      <td>0.136805</td>
+      <td>0.095804</td>
+      <td>0.128517</td>
+      <td>0.073161</td>
+      <td>0.118190</td>
+      <td>0.056381</td>
+      <td>0.106322</td>
+      <td>0.089361</td>
+    </tr>
+    <tr>
+      <th>effective_school_leadership_percent</th>
+      <td>0.056626</td>
+      <td>0.152132</td>
+      <td>0.060050</td>
+      <td>0.073008</td>
+      <td>0.054139</td>
+      <td>0.123528</td>
+      <td>0.111651</td>
+      <td>0.050884</td>
+      <td>0.054176</td>
+      <td>0.074297</td>
+      <td>0.059195</td>
+      <td>0.038555</td>
+      <td>0.061796</td>
+      <td>0.137868</td>
+      <td>0.104624</td>
+      <td>0.110389</td>
+      <td>0.042215</td>
+      <td>0.150559</td>
+      <td>0.027284</td>
+      <td>0.081737</td>
+      <td>0.086129</td>
+      <td>0.063335</td>
+      <td>0.047148</td>
+      <td>0.105216</td>
+      <td>0.094254</td>
+      <td>0.143214</td>
+      <td>0.080663</td>
+      <td>0.074191</td>
+      <td>0.053161</td>
+      <td>0.067109</td>
+      <td>0.069375</td>
+      <td>0.072110</td>
+      <td>0.076216</td>
+      <td>0.068946</td>
+      <td>0.116803</td>
+      <td>0.034052</td>
+      <td>0.115010</td>
+      <td>0.156803</td>
+      <td>0.055156</td>
+      <td>0.025573</td>
+      <td>0.075192</td>
+      <td>0.084837</td>
+      <td>0.099323</td>
+      <td>0.068634</td>
+      <td>0.086509</td>
+      <td>0.054325</td>
+      <td>0.128584</td>
+      <td>0.052995</td>
+      <td>0.094433</td>
+      <td>0.071841</td>
+      <td>0.080917</td>
+    </tr>
+    <tr>
+      <th>community_school</th>
+      <td>0.108279</td>
+      <td>0.121706</td>
+      <td>0.082935</td>
+      <td>-0.012306</td>
+      <td>0.095374</td>
+      <td>0.097715</td>
+      <td>0.120940</td>
+      <td>0.007915</td>
+      <td>0.124280</td>
+      <td>0.049052</td>
+      <td>0.017945</td>
+      <td>0.162684</td>
+      <td>0.066120</td>
+      <td>0.011717</td>
+      <td>0.164567</td>
+      <td>0.112448</td>
+      <td>0.097932</td>
+      <td>0.095330</td>
+      <td>-0.004100</td>
+      <td>0.094671</td>
+      <td>0.097184</td>
+      <td>0.017586</td>
+      <td>0.118942</td>
+      <td>0.112738</td>
+      <td>0.058855</td>
+      <td>0.098782</td>
+      <td>0.131248</td>
+      <td>0.090520</td>
+      <td>0.095368</td>
+      <td>-0.007468</td>
+      <td>0.123262</td>
+      <td>0.036887</td>
+      <td>0.104323</td>
+      <td>0.027525</td>
+      <td>0.107223</td>
+      <td>0.040253</td>
+      <td>0.121300</td>
+      <td>0.067097</td>
+      <td>0.037701</td>
+      <td>0.142196</td>
+      <td>0.091390</td>
+      <td>0.028013</td>
+      <td>0.065219</td>
+      <td>0.076934</td>
+      <td>0.126346</td>
+      <td>0.111427</td>
+      <td>0.078279</td>
+      <td>0.081260</td>
+      <td>0.108323</td>
+      <td>0.028868</td>
+      <td>0.080656</td>
+    </tr>
+    <tr>
+      <th>average_class_size_social_studies</th>
+      <td>0.044952</td>
+      <td>0.096553</td>
+      <td>0.108324</td>
+      <td>0.075293</td>
+      <td>0.057030</td>
+      <td>0.073648</td>
+      <td>0.132703</td>
+      <td>0.076572</td>
+      <td>0.052568</td>
+      <td>0.042417</td>
+      <td>0.111203</td>
+      <td>0.005507</td>
+      <td>0.121646</td>
+      <td>0.052336</td>
+      <td>0.089430</td>
+      <td>0.083355</td>
+      <td>0.024921</td>
+      <td>0.094436</td>
+      <td>0.096421</td>
+      <td>0.078372</td>
+      <td>0.162673</td>
+      <td>0.027235</td>
+      <td>0.068410</td>
+      <td>0.051646</td>
+      <td>0.085328</td>
+      <td>0.070722</td>
+      <td>0.089942</td>
+      <td>0.113238</td>
+      <td>0.075285</td>
+      <td>0.046378</td>
+      <td>0.107290</td>
+      <td>0.055696</td>
+      <td>0.043057</td>
+      <td>0.049055</td>
+      <td>0.129370</td>
+      <td>0.118847</td>
+      <td>0.025894</td>
+      <td>0.077397</td>
+      <td>0.109258</td>
+      <td>0.064894</td>
+      <td>0.068622</td>
+      <td>0.129268</td>
+      <td>0.028858</td>
+      <td>0.112565</td>
+      <td>0.038788</td>
+      <td>0.068746</td>
+      <td>0.022463</td>
+      <td>0.080630</td>
+      <td>0.109581</td>
+      <td>0.099248</td>
+      <td>0.076961</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_economically_disadvantaged</th>
+      <td>0.035340</td>
+      <td>0.053850</td>
+      <td>0.129620</td>
+      <td>0.077175</td>
+      <td>0.078177</td>
+      <td>0.060182</td>
+      <td>0.142234</td>
+      <td>0.097375</td>
+      <td>0.031517</td>
+      <td>0.046416</td>
+      <td>0.027095</td>
+      <td>0.047545</td>
+      <td>0.095732</td>
+      <td>0.043511</td>
+      <td>0.158174</td>
+      <td>0.054234</td>
+      <td>0.086222</td>
+      <td>0.086432</td>
+      <td>0.092425</td>
+      <td>0.043064</td>
+      <td>0.034716</td>
+      <td>0.042276</td>
+      <td>0.167998</td>
+      <td>0.027295</td>
+      <td>0.092235</td>
+      <td>0.077102</td>
+      <td>0.073161</td>
+      <td>0.042234</td>
+      <td>0.115611</td>
+      <td>0.077007</td>
+      <td>0.079257</td>
+      <td>0.148142</td>
+      <td>0.068581</td>
+      <td>0.055174</td>
+      <td>0.056656</td>
+      <td>0.082685</td>
+      <td>0.055427</td>
+      <td>0.072908</td>
+      <td>0.128241</td>
+      <td>0.060647</td>
+      <td>0.078978</td>
+      <td>0.023387</td>
+      <td>0.082860</td>
+      <td>0.058631</td>
+      <td>0.127339</td>
+      <td>0.091703</td>
+      <td>0.019989</td>
+      <td>0.191711</td>
+      <td>0.043955</td>
+      <td>0.029172</td>
+      <td>0.075828</td>
+    </tr>
+    <tr>
+      <th>collaborative_teachers_rating</th>
+      <td>0.049033</td>
+      <td>0.031930</td>
+      <td>0.163694</td>
+      <td>0.102881</td>
+      <td>0.029103</td>
+      <td>-0.015438</td>
+      <td>0.122587</td>
+      <td>-0.005547</td>
+      <td>0.085438</td>
+      <td>0.176283</td>
+      <td>0.107022</td>
+      <td>0.061649</td>
+      <td>0.139787</td>
+      <td>0.079943</td>
+      <td>-0.027829</td>
+      <td>0.030424</td>
+      <td>0.128434</td>
+      <td>0.080081</td>
+      <td>0.093451</td>
+      <td>0.043958</td>
+      <td>0.064907</td>
+      <td>0.073422</td>
+      <td>0.118995</td>
+      <td>0.082904</td>
+      <td>0.051035</td>
+      <td>0.141077</td>
+      <td>0.021360</td>
+      <td>0.037456</td>
+      <td>0.119462</td>
+      <td>0.040882</td>
+      <td>0.070978</td>
+      <td>0.062542</td>
+      <td>0.050953</td>
+      <td>0.117390</td>
+      <td>0.066445</td>
+      <td>0.075252</td>
+      <td>0.123229</td>
+      <td>0.034102</td>
+      <td>0.015058</td>
+      <td>0.136043</td>
+      <td>0.013885</td>
+      <td>0.119543</td>
+      <td>0.100187</td>
+      <td>0.013244</td>
+      <td>0.112676</td>
+      <td>0.007251</td>
+      <td>0.035476</td>
+      <td>0.129873</td>
+      <td>0.104764</td>
+      <td>0.090676</td>
+      <td>0.074159</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_white</th>
+      <td>0.039802</td>
+      <td>0.034569</td>
+      <td>0.059206</td>
+      <td>0.037950</td>
+      <td>0.185520</td>
+      <td>0.005683</td>
+      <td>0.125803</td>
+      <td>0.087547</td>
+      <td>0.067573</td>
+      <td>0.031599</td>
+      <td>0.056139</td>
+      <td>0.035757</td>
+      <td>0.085207</td>
+      <td>0.057547</td>
+      <td>0.098626</td>
+      <td>0.037688</td>
+      <td>0.056607</td>
+      <td>0.073230</td>
+      <td>0.031445</td>
+      <td>0.168286</td>
+      <td>0.110240</td>
+      <td>0.038394</td>
+      <td>0.046725</td>
+      <td>0.089203</td>
+      <td>0.049044</td>
+      <td>0.099092</td>
+      <td>0.009867</td>
+      <td>0.062568</td>
+      <td>0.099318</td>
+      <td>0.062708</td>
+      <td>0.038749</td>
+      <td>0.098150</td>
+      <td>0.157551</td>
+      <td>0.016350</td>
+      <td>0.038731</td>
+      <td>0.088574</td>
+      <td>0.056597</td>
+      <td>0.140840</td>
+      <td>0.000144</td>
+      <td>0.046808</td>
+      <td>0.034335</td>
+      <td>0.081118</td>
+      <td>0.139083</td>
+      <td>0.043935</td>
+      <td>0.043840</td>
+      <td>0.031685</td>
+      <td>0.069378</td>
+      <td>0.066071</td>
+      <td>0.042691</td>
+      <td>0.161961</td>
+      <td>0.068791</td>
+    </tr>
+    <tr>
+      <th>student_achievement_rating</th>
+      <td>0.100115</td>
+      <td>0.035026</td>
+      <td>0.047486</td>
+      <td>0.035592</td>
+      <td>0.050506</td>
+      <td>0.055187</td>
+      <td>0.128349</td>
+      <td>-0.008000</td>
+      <td>0.087055</td>
+      <td>0.027720</td>
+      <td>0.002723</td>
+      <td>0.175927</td>
+      <td>0.048587</td>
+      <td>0.089604</td>
+      <td>-0.030294</td>
+      <td>0.051646</td>
+      <td>0.056483</td>
+      <td>0.061306</td>
+      <td>0.008071</td>
+      <td>0.075640</td>
+      <td>0.088299</td>
+      <td>0.069551</td>
+      <td>0.106945</td>
+      <td>0.004988</td>
+      <td>0.006007</td>
+      <td>0.101326</td>
+      <td>0.032944</td>
+      <td>0.046437</td>
+      <td>0.049799</td>
+      <td>0.031781</td>
+      <td>0.042367</td>
+      <td>0.035061</td>
+      <td>0.062035</td>
+      <td>0.039587</td>
+      <td>0.093476</td>
+      <td>0.116613</td>
+      <td>-0.004464</td>
+      <td>0.042630</td>
+      <td>0.022978</td>
+      <td>0.087746</td>
+      <td>0.103649</td>
+      <td>0.038219</td>
+      <td>0.053473</td>
+      <td>0.025079</td>
+      <td>0.070639</td>
+      <td>0.141060</td>
+      <td>0.105274</td>
+      <td>-0.057765</td>
+      <td>0.053627</td>
+      <td>0.042803</td>
+      <td>0.055018</td>
+    </tr>
+    <tr>
+      <th>number_of_classes_science</th>
+      <td>0.046428</td>
+      <td>0.064714</td>
+      <td>0.008305</td>
+      <td>0.082632</td>
+      <td>0.072249</td>
+      <td>0.064090</td>
+      <td>0.025286</td>
+      <td>0.035811</td>
+      <td>0.083893</td>
+      <td>0.053975</td>
+      <td>0.036543</td>
+      <td>0.067323</td>
+      <td>0.095793</td>
+      <td>0.076640</td>
+      <td>0.001913</td>
+      <td>0.014251</td>
+      <td>0.035724</td>
+      <td>0.075741</td>
+      <td>0.051157</td>
+      <td>0.093836</td>
+      <td>0.072578</td>
+      <td>0.075283</td>
+      <td>0.008388</td>
+      <td>0.079546</td>
+      <td>0.041270</td>
+      <td>0.045562</td>
+      <td>0.058331</td>
+      <td>0.046895</td>
+      <td>0.060665</td>
+      <td>0.055494</td>
+      <td>0.086252</td>
+      <td>-0.018792</td>
+      <td>0.090138</td>
+      <td>0.059343</td>
+      <td>0.053023</td>
+      <td>0.091510</td>
+      <td>0.060772</td>
+      <td>0.044803</td>
+      <td>0.021514</td>
+      <td>0.049130</td>
+      <td>0.055017</td>
+      <td>0.086654</td>
+      <td>0.063956</td>
+      <td>0.027863</td>
+      <td>0.049074</td>
+      <td>0.061179</td>
+      <td>0.043442</td>
+      <td>0.034790</td>
+      <td>0.067686</td>
+      <td>0.055619</td>
+      <td>0.054266</td>
+    </tr>
+    <tr>
+      <th>grade_7_enrollment</th>
+      <td>0.044943</td>
+      <td>0.050818</td>
+      <td>0.038747</td>
+      <td>0.068933</td>
+      <td>0.059190</td>
+      <td>0.100626</td>
+      <td>0.035302</td>
+      <td>0.021282</td>
+      <td>0.068928</td>
+      <td>0.033844</td>
+      <td>0.080796</td>
+      <td>0.083212</td>
+      <td>0.053571</td>
+      <td>0.059620</td>
+      <td>-0.020681</td>
+      <td>0.027774</td>
+      <td>0.004359</td>
+      <td>0.083539</td>
+      <td>0.052957</td>
+      <td>0.103421</td>
+      <td>0.074335</td>
+      <td>0.038055</td>
+      <td>0.026546</td>
+      <td>0.075030</td>
+      <td>0.062138</td>
+      <td>0.067730</td>
+      <td>0.018473</td>
+      <td>0.032453</td>
+      <td>0.059372</td>
+      <td>0.074516</td>
+      <td>0.084136</td>
+      <td>0.024141</td>
+      <td>0.097333</td>
+      <td>0.058563</td>
+      <td>0.008643</td>
+      <td>0.024058</td>
+      <td>0.012356</td>
+      <td>0.098590</td>
+      <td>0.025673</td>
+      <td>0.095048</td>
+      <td>0.046197</td>
+      <td>0.053350</td>
+      <td>0.053838</td>
+      <td>0.026431</td>
+      <td>0.070702</td>
+      <td>0.021212</td>
+      <td>0.047812</td>
+      <td>0.072649</td>
+      <td>0.056645</td>
+      <td>0.057584</td>
+      <td>0.052296</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_white</th>
+      <td>0.016908</td>
+      <td>0.012365</td>
+      <td>0.082019</td>
+      <td>0.001673</td>
+      <td>0.141691</td>
+      <td>-0.008359</td>
+      <td>0.140191</td>
+      <td>0.062397</td>
+      <td>0.018442</td>
+      <td>0.008566</td>
+      <td>0.022902</td>
+      <td>0.018185</td>
+      <td>0.087948</td>
+      <td>0.018705</td>
+      <td>0.100484</td>
+      <td>0.045565</td>
+      <td>0.024032</td>
+      <td>0.094719</td>
+      <td>0.020460</td>
+      <td>0.074828</td>
+      <td>0.052747</td>
+      <td>0.039915</td>
+      <td>0.106597</td>
+      <td>0.033956</td>
+      <td>0.023050</td>
+      <td>0.070067</td>
+      <td>-0.007989</td>
+      <td>0.021269</td>
+      <td>0.095661</td>
+      <td>0.060591</td>
+      <td>0.071136</td>
+      <td>0.106285</td>
+      <td>0.058020</td>
+      <td>0.001503</td>
+      <td>0.005098</td>
+      <td>0.128790</td>
+      <td>0.057238</td>
+      <td>0.053001</td>
+      <td>-0.022342</td>
+      <td>0.021932</td>
+      <td>0.033431</td>
+      <td>0.049123</td>
+      <td>0.122901</td>
+      <td>0.035659</td>
+      <td>0.017878</td>
+      <td>0.012865</td>
+      <td>0.045258</td>
+      <td>0.122203</td>
+      <td>-0.000445</td>
+      <td>0.083004</td>
+      <td>0.049642</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_multiracial</th>
+      <td>0.036326</td>
+      <td>0.066020</td>
+      <td>0.066394</td>
+      <td>0.044833</td>
+      <td>0.004897</td>
+      <td>0.017786</td>
+      <td>0.008779</td>
+      <td>0.036897</td>
+      <td>0.087987</td>
+      <td>0.090245</td>
+      <td>0.041148</td>
+      <td>0.067560</td>
+      <td>0.044343</td>
+      <td>0.043068</td>
+      <td>0.047311</td>
+      <td>0.040833</td>
+      <td>0.040529</td>
+      <td>0.054236</td>
+      <td>0.014091</td>
+      <td>0.071754</td>
+      <td>0.018280</td>
+      <td>0.047853</td>
+      <td>0.039875</td>
+      <td>0.046207</td>
+      <td>0.076525</td>
+      <td>0.018206</td>
+      <td>0.062799</td>
+      <td>0.071290</td>
+      <td>0.035127</td>
+      <td>0.045341</td>
+      <td>0.089724</td>
+      <td>0.024035</td>
+      <td>0.022293</td>
+      <td>0.057175</td>
+      <td>0.045682</td>
+      <td>0.033076</td>
+      <td>0.046844</td>
+      <td>0.128735</td>
+      <td>0.020607</td>
+      <td>0.026717</td>
+      <td>0.039485</td>
+      <td>0.044505</td>
+      <td>0.023679</td>
+      <td>0.005040</td>
+      <td>0.156035</td>
+      <td>0.046601</td>
+      <td>0.039883</td>
+      <td>0.060289</td>
+      <td>0.009496</td>
+      <td>0.068582</td>
+      <td>0.047501</td>
+    </tr>
+    <tr>
+      <th>number_of_students_science</th>
+      <td>0.036187</td>
+      <td>0.048108</td>
+      <td>0.033528</td>
+      <td>0.069080</td>
+      <td>0.051205</td>
+      <td>0.037304</td>
+      <td>-0.001302</td>
+      <td>0.072618</td>
+      <td>0.068956</td>
+      <td>0.047782</td>
+      <td>0.021025</td>
+      <td>0.054546</td>
+      <td>0.077468</td>
+      <td>0.060437</td>
+      <td>0.024615</td>
+      <td>0.040744</td>
+      <td>0.023089</td>
+      <td>0.071480</td>
+      <td>0.036548</td>
+      <td>0.062803</td>
+      <td>0.043060</td>
+      <td>0.070013</td>
+      <td>0.036806</td>
+      <td>0.068810</td>
+      <td>0.015037</td>
+      <td>0.029905</td>
+      <td>0.037813</td>
+      <td>0.045672</td>
+      <td>0.046139</td>
+      <td>0.073010</td>
+      <td>0.072600</td>
+      <td>0.019036</td>
+      <td>0.073828</td>
+      <td>0.029496</td>
+      <td>0.036389</td>
+      <td>0.065823</td>
+      <td>0.049004</td>
+      <td>0.050482</td>
+      <td>0.009758</td>
+      <td>0.051539</td>
+      <td>0.058055</td>
+      <td>0.061425</td>
+      <td>0.056936</td>
+      <td>0.034862</td>
+      <td>0.030312</td>
+      <td>0.055330</td>
+      <td>0.032927</td>
+      <td>0.051405</td>
+      <td>0.043790</td>
+      <td>0.043851</td>
+      <td>0.046587</td>
+    </tr>
+    <tr>
+      <th>trust_percent</th>
+      <td>0.048838</td>
+      <td>0.032905</td>
+      <td>-0.006946</td>
+      <td>0.039041</td>
+      <td>0.055660</td>
+      <td>0.091289</td>
+      <td>0.046911</td>
+      <td>0.038674</td>
+      <td>0.049152</td>
+      <td>-0.034905</td>
+      <td>0.053811</td>
+      <td>0.030450</td>
+      <td>0.004177</td>
+      <td>0.012681</td>
+      <td>0.086193</td>
+      <td>0.050615</td>
+      <td>0.013321</td>
+      <td>0.058712</td>
+      <td>0.063989</td>
+      <td>-0.020389</td>
+      <td>0.061294</td>
+      <td>0.108391</td>
+      <td>-0.013842</td>
+      <td>0.012676</td>
+      <td>0.005138</td>
+      <td>0.041711</td>
+      <td>-0.030034</td>
+      <td>0.022887</td>
+      <td>0.070861</td>
+      <td>0.066972</td>
+      <td>0.065672</td>
+      <td>-0.030713</td>
+      <td>0.031013</td>
+      <td>0.097572</td>
+      <td>0.006581</td>
+      <td>0.101652</td>
+      <td>0.014910</td>
+      <td>0.017728</td>
+      <td>-0.006957</td>
+      <td>0.034231</td>
+      <td>0.024614</td>
+      <td>0.067178</td>
+      <td>0.030093</td>
+      <td>0.074215</td>
+      <td>-0.022196</td>
+      <td>-0.002677</td>
+      <td>0.073788</td>
+      <td>0.021922</td>
+      <td>0.007013</td>
+      <td>0.066238</td>
+      <td>0.034642</td>
+    </tr>
+    <tr>
+      <th>rigorous_instruction_percent</th>
+      <td>-0.008524</td>
+      <td>0.062905</td>
+      <td>0.041915</td>
+      <td>0.004076</td>
+      <td>0.019867</td>
+      <td>0.072922</td>
+      <td>-0.026525</td>
+      <td>0.026764</td>
+      <td>0.012771</td>
+      <td>0.030257</td>
+      <td>0.003023</td>
+      <td>0.018048</td>
+      <td>0.051808</td>
+      <td>0.033095</td>
+      <td>0.007262</td>
+      <td>-0.003710</td>
+      <td>0.059177</td>
+      <td>0.089205</td>
+      <td>-0.016423</td>
+      <td>0.002759</td>
+      <td>0.062625</td>
+      <td>0.006207</td>
+      <td>0.008489</td>
+      <td>0.033407</td>
+      <td>-0.004805</td>
+      <td>0.034908</td>
+      <td>0.087958</td>
+      <td>0.001585</td>
+      <td>0.001504</td>
+      <td>0.001232</td>
+      <td>0.041444</td>
+      <td>0.055528</td>
+      <td>0.035874</td>
+      <td>-0.008765</td>
+      <td>-0.002860</td>
+      <td>0.030448</td>
+      <td>-0.013509</td>
+      <td>0.073089</td>
+      <td>0.078397</td>
+      <td>-0.028207</td>
+      <td>0.080957</td>
+      <td>0.098954</td>
+      <td>-0.013696</td>
+      <td>-0.084666</td>
+      <td>0.050757</td>
+      <td>0.125744</td>
+      <td>-0.022868</td>
+      <td>-0.051662</td>
+      <td>0.017680</td>
+      <td>0.051578</td>
+      <td>0.024560</td>
+    </tr>
+    <tr>
+      <th>number_of_students_math</th>
+      <td>0.051540</td>
+      <td>0.002548</td>
+      <td>0.009017</td>
+      <td>0.042301</td>
+      <td>-0.011521</td>
+      <td>0.015277</td>
+      <td>-0.004313</td>
+      <td>0.000204</td>
+      <td>0.004983</td>
+      <td>0.069823</td>
+      <td>0.045101</td>
+      <td>-0.004426</td>
+      <td>0.016206</td>
+      <td>0.009801</td>
+      <td>0.011085</td>
+      <td>-0.007047</td>
+      <td>-0.017837</td>
+      <td>0.042733</td>
+      <td>0.077403</td>
+      <td>-0.009461</td>
+      <td>0.001967</td>
+      <td>-0.001093</td>
+      <td>0.019474</td>
+      <td>0.049242</td>
+      <td>0.012009</td>
+      <td>0.028214</td>
+      <td>0.044549</td>
+      <td>-0.011738</td>
+      <td>-0.007804</td>
+      <td>0.029768</td>
+      <td>0.040516</td>
+      <td>-0.020316</td>
+      <td>-0.021985</td>
+      <td>0.097552</td>
+      <td>-0.006261</td>
+      <td>-0.009849</td>
+      <td>0.074037</td>
+      <td>0.041071</td>
+      <td>-0.025108</td>
+      <td>0.008699</td>
+      <td>-0.011196</td>
+      <td>-0.028464</td>
+      <td>0.063823</td>
+      <td>0.029176</td>
+      <td>0.014467</td>
+      <td>0.026816</td>
+      <td>-0.011049</td>
+      <td>0.033070</td>
+      <td>0.000163</td>
+      <td>0.005117</td>
+      <td>0.016166</td>
+    </tr>
+    <tr>
+      <th>school_pupil_teacher_ratio</th>
+      <td>0.033815</td>
+      <td>0.049874</td>
+      <td>-0.092171</td>
+      <td>0.081456</td>
+      <td>0.004919</td>
+      <td>-0.011753</td>
+      <td>0.067618</td>
+      <td>0.028172</td>
+      <td>-0.012185</td>
+      <td>-0.004559</td>
+      <td>-0.046447</td>
+      <td>0.098601</td>
+      <td>-0.015507</td>
+      <td>0.012871</td>
+      <td>-0.015985</td>
+      <td>-0.032160</td>
+      <td>0.095058</td>
+      <td>0.024414</td>
+      <td>-0.029529</td>
+      <td>-0.009158</td>
+      <td>-0.064385</td>
+      <td>0.000707</td>
+      <td>0.088823</td>
+      <td>-0.018952</td>
+      <td>0.021189</td>
+      <td>0.034619</td>
+      <td>0.047621</td>
+      <td>-0.016124</td>
+      <td>0.053829</td>
+      <td>-0.060051</td>
+      <td>-0.011993</td>
+      <td>0.005949</td>
+      <td>0.015101</td>
+      <td>0.014370</td>
+      <td>0.039006</td>
+      <td>0.000797</td>
+      <td>0.028304</td>
+      <td>-0.012824</td>
+      <td>0.000614</td>
+      <td>0.041458</td>
+      <td>-0.019392</td>
+      <td>0.063990</td>
+      <td>0.044730</td>
+      <td>-0.026942</td>
+      <td>-0.010100</td>
+      <td>-0.021328</td>
+      <td>-0.047400</td>
+      <td>0.026786</td>
+      <td>0.091046</td>
+      <td>-0.000221</td>
+      <td>0.010731</td>
+    </tr>
+    <tr>
+      <th>percent_black</th>
+      <td>-0.021098</td>
+      <td>0.031307</td>
+      <td>0.000182</td>
+      <td>-0.017722</td>
+      <td>0.040535</td>
+      <td>0.011259</td>
+      <td>0.001315</td>
+      <td>0.028212</td>
+      <td>0.010660</td>
+      <td>-0.016880</td>
+      <td>0.001500</td>
+      <td>-0.005096</td>
+      <td>0.039995</td>
+      <td>0.009295</td>
+      <td>-0.014002</td>
+      <td>0.047255</td>
+      <td>0.041878</td>
+      <td>-0.035751</td>
+      <td>-0.006568</td>
+      <td>0.003937</td>
+      <td>-0.009123</td>
+      <td>0.024846</td>
+      <td>0.010138</td>
+      <td>0.012897</td>
+      <td>0.004154</td>
+      <td>0.044597</td>
+      <td>0.016907</td>
+      <td>0.011045</td>
+      <td>-0.068629</td>
+      <td>0.027651</td>
+      <td>0.031586</td>
+      <td>0.012034</td>
+      <td>0.012552</td>
+      <td>-0.007133</td>
+      <td>-0.015060</td>
+      <td>-0.005239</td>
+      <td>-0.009915</td>
+      <td>0.030438</td>
+      <td>0.043524</td>
+      <td>-0.023713</td>
+      <td>0.045959</td>
+      <td>-0.037459</td>
+      <td>0.015932</td>
+      <td>-0.011326</td>
+      <td>0.022452</td>
+      <td>0.045025</td>
+      <td>0.008863</td>
+      <td>0.021083</td>
+      <td>-0.032266</td>
+      <td>-0.002596</td>
+      <td>0.007389</td>
+    </tr>
+    <tr>
+      <th>number_of_classes_social_studies</th>
+      <td>-0.010418</td>
+      <td>0.014164</td>
+      <td>-0.002051</td>
+      <td>-0.008197</td>
+      <td>0.019287</td>
+      <td>0.030607</td>
+      <td>-0.030096</td>
+      <td>-0.001343</td>
+      <td>0.020676</td>
+      <td>0.002361</td>
+      <td>0.015326</td>
+      <td>0.022595</td>
+      <td>-0.014103</td>
+      <td>0.001305</td>
+      <td>-0.005058</td>
+      <td>-0.020197</td>
+      <td>0.017932</td>
+      <td>0.052784</td>
+      <td>-0.050186</td>
+      <td>0.040392</td>
+      <td>-0.010073</td>
+      <td>0.016951</td>
+      <td>0.015692</td>
+      <td>0.009920</td>
+      <td>0.017454</td>
+      <td>-0.011545</td>
+      <td>0.042351</td>
+      <td>-0.011110</td>
+      <td>0.005660</td>
+      <td>0.006494</td>
+      <td>-0.025861</td>
+      <td>-0.005359</td>
+      <td>0.073850</td>
+      <td>0.012873</td>
+      <td>-0.018910</td>
+      <td>-0.011926</td>
+      <td>0.028456</td>
+      <td>-0.014100</td>
+      <td>-0.012765</td>
+      <td>0.036671</td>
+      <td>0.006265</td>
+      <td>-0.017499</td>
+      <td>0.008823</td>
+      <td>-0.025471</td>
+      <td>0.067239</td>
+      <td>-0.010911</td>
+      <td>0.036523</td>
+      <td>-0.019145</td>
+      <td>0.009214</td>
+      <td>0.024384</td>
+      <td>0.006399</td>
+    </tr>
+    <tr>
+      <th>supportive_environment_percent</th>
+      <td>0.004306</td>
+      <td>0.013878</td>
+      <td>0.001073</td>
+      <td>-0.002179</td>
+      <td>0.001796</td>
+      <td>0.006947</td>
+      <td>0.027802</td>
+      <td>-0.051217</td>
+      <td>0.011286</td>
+      <td>0.019620</td>
+      <td>-0.008838</td>
+      <td>0.101901</td>
+      <td>-0.001108</td>
+      <td>-0.015075</td>
+      <td>-0.053220</td>
+      <td>-0.089897</td>
+      <td>0.127522</td>
+      <td>-0.025593</td>
+      <td>0.028389</td>
+      <td>-0.020338</td>
+      <td>-0.026644</td>
+      <td>0.068528</td>
+      <td>0.006305</td>
+      <td>-0.013922</td>
+      <td>-0.012646</td>
+      <td>-0.041217</td>
+      <td>0.096680</td>
+      <td>-0.010836</td>
+      <td>-0.011625</td>
+      <td>-0.015924</td>
+      <td>0.079345</td>
+      <td>-0.037093</td>
+      <td>0.019316</td>
+      <td>0.048275</td>
+      <td>-0.078506</td>
+      <td>0.065111</td>
+      <td>-0.025701</td>
+      <td>-0.047196</td>
+      <td>0.009897</td>
+      <td>-0.005312</td>
+      <td>-0.016352</td>
+      <td>0.105649</td>
+      <td>-0.010784</td>
+      <td>-0.052766</td>
+      <td>-0.000411</td>
+      <td>0.042076</td>
+      <td>0.007099</td>
+      <td>0.001555</td>
+      <td>-0.073676</td>
+      <td>0.050004</td>
+      <td>0.003926</td>
+    </tr>
+    <tr>
+      <th>collaborative_teachers_percent</th>
+      <td>-0.002566</td>
+      <td>0.038945</td>
+      <td>-0.022879</td>
+      <td>-0.014553</td>
+      <td>0.034733</td>
+      <td>0.040719</td>
+      <td>-0.002082</td>
+      <td>-0.005746</td>
+      <td>0.002100</td>
+      <td>-0.007429</td>
+      <td>-0.004109</td>
+      <td>0.028227</td>
+      <td>0.016621</td>
+      <td>-0.011036</td>
+      <td>-0.006228</td>
+      <td>-0.022425</td>
+      <td>-0.008929</td>
+      <td>0.082002</td>
+      <td>-0.019721</td>
+      <td>-0.007125</td>
+      <td>-0.037462</td>
+      <td>-0.010763</td>
+      <td>-0.010114</td>
+      <td>0.032635</td>
+      <td>0.049722</td>
+      <td>-0.021703</td>
+      <td>-0.021232</td>
+      <td>0.019603</td>
+      <td>-0.001914</td>
+      <td>0.056475</td>
+      <td>-0.005477</td>
+      <td>-0.011509</td>
+      <td>0.021754</td>
+      <td>0.020206</td>
+      <td>-0.023818</td>
+      <td>-0.020006</td>
+      <td>0.014235</td>
+      <td>0.066308</td>
+      <td>-0.051914</td>
+      <td>-0.011684</td>
+      <td>0.052876</td>
+      <td>-0.006756</td>
+      <td>0.021367</td>
+      <td>-0.062764</td>
+      <td>0.020089</td>
+      <td>0.015525</td>
+      <td>0.022359</td>
+      <td>-0.084339</td>
+      <td>0.022449</td>
+      <td>0.030635</td>
+      <td>0.003866</td>
+    </tr>
+    <tr>
+      <th>average_class_size_math</th>
+      <td>-0.065257</td>
+      <td>-0.037872</td>
+      <td>0.085160</td>
+      <td>0.003622</td>
+      <td>-0.013014</td>
+      <td>-0.015541</td>
+      <td>0.015954</td>
+      <td>0.001016</td>
+      <td>-0.033297</td>
+      <td>0.017779</td>
+      <td>-0.012768</td>
+      <td>-0.066220</td>
+      <td>0.038004</td>
+      <td>-0.029372</td>
+      <td>0.050968</td>
+      <td>-0.027173</td>
+      <td>0.026203</td>
+      <td>-0.036379</td>
+      <td>0.009545</td>
+      <td>0.003882</td>
+      <td>0.000999</td>
+      <td>-0.038249</td>
+      <td>-0.004497</td>
+      <td>0.027722</td>
+      <td>-0.022239</td>
+      <td>-0.025563</td>
+      <td>0.023165</td>
+      <td>-0.021775</td>
+      <td>-0.057712</td>
+      <td>0.055845</td>
+      <td>-0.029634</td>
+      <td>0.012542</td>
+      <td>0.000915</td>
+      <td>0.037267</td>
+      <td>-0.020427</td>
+      <td>0.073985</td>
+      <td>0.033103</td>
+      <td>-0.053343</td>
+      <td>-0.027656</td>
+      <td>-0.039631</td>
+      <td>0.087129</td>
+      <td>-0.021648</td>
+      <td>-0.052657</td>
+      <td>0.002127</td>
+      <td>-0.030410</td>
+      <td>0.026050</td>
+      <td>0.028360</td>
+      <td>-0.051470</td>
+      <td>0.061433</td>
+      <td>-0.105574</td>
+      <td>-0.004332</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_multiracial</th>
+      <td>-0.042331</td>
+      <td>0.097485</td>
+      <td>-0.034671</td>
+      <td>-0.028235</td>
+      <td>-0.039888</td>
+      <td>-0.039116</td>
+      <td>-0.031274</td>
+      <td>-0.026037</td>
+      <td>-0.024739</td>
+      <td>0.096000</td>
+      <td>-0.026674</td>
+      <td>0.093211</td>
+      <td>-0.026840</td>
+      <td>-0.031397</td>
+      <td>-0.032183</td>
+      <td>-0.031636</td>
+      <td>-0.036904</td>
+      <td>-0.037076</td>
+      <td>-0.022505</td>
+      <td>0.093303</td>
+      <td>-0.041415</td>
+      <td>-0.034431</td>
+      <td>-0.017323</td>
+      <td>0.086029</td>
+      <td>-0.038518</td>
+      <td>-0.022621</td>
+      <td>0.088630</td>
+      <td>-0.039032</td>
+      <td>-0.034367</td>
+      <td>-0.024137</td>
+      <td>0.096361</td>
+      <td>-0.024681</td>
+      <td>-0.029365</td>
+      <td>-0.039746</td>
+      <td>-0.035231</td>
+      <td>-0.028017</td>
+      <td>-0.032991</td>
+      <td>0.113663</td>
+      <td>-0.023990</td>
+      <td>-0.032551</td>
+      <td>-0.026592</td>
+      <td>-0.042964</td>
+      <td>-0.028269</td>
+      <td>-0.025439</td>
+      <td>0.119517</td>
+      <td>-0.021181</td>
+      <td>-0.024082</td>
+      <td>-0.037708</td>
+      <td>-0.042559</td>
+      <td>0.093845</td>
+      <td>-0.005613</td>
+    </tr>
+    <tr>
+      <th>number_of_students_social_studies</th>
+      <td>-0.022923</td>
+      <td>-0.002796</td>
+      <td>0.006840</td>
+      <td>-0.017778</td>
+      <td>-0.005751</td>
+      <td>-0.002850</td>
+      <td>-0.027346</td>
+      <td>0.002440</td>
+      <td>-0.004499</td>
+      <td>-0.014065</td>
+      <td>0.002070</td>
+      <td>0.003503</td>
+      <td>0.002510</td>
+      <td>-0.025687</td>
+      <td>-0.027964</td>
+      <td>-0.015520</td>
+      <td>-0.019266</td>
+      <td>0.047514</td>
+      <td>-0.048634</td>
+      <td>0.006174</td>
+      <td>-0.003111</td>
+      <td>-0.011351</td>
+      <td>0.012775</td>
+      <td>-0.013581</td>
+      <td>-0.010252</td>
+      <td>-0.019208</td>
+      <td>0.011961</td>
+      <td>-0.020691</td>
+      <td>-0.008867</td>
+      <td>0.011625</td>
+      <td>-0.025055</td>
+      <td>-0.008158</td>
+      <td>0.052983</td>
+      <td>-0.013138</td>
+      <td>-0.036180</td>
+      <td>-0.006029</td>
+      <td>0.005031</td>
+      <td>-0.020385</td>
+      <td>-0.027241</td>
+      <td>0.008961</td>
+      <td>0.018138</td>
+      <td>-0.038861</td>
+      <td>-0.000779</td>
+      <td>-0.035273</td>
+      <td>0.027110</td>
+      <td>-0.023369</td>
+      <td>-0.006064</td>
+      <td>-0.023995</td>
+      <td>0.010935</td>
+      <td>0.007576</td>
+      <td>-0.006970</td>
+    </tr>
+    <tr>
+      <th>number_of_classes_math</th>
+      <td>-0.011389</td>
+      <td>-0.022687</td>
+      <td>-0.044355</td>
+      <td>0.005608</td>
+      <td>0.038822</td>
+      <td>-0.011370</td>
+      <td>-0.060296</td>
+      <td>0.023077</td>
+      <td>-0.012228</td>
+      <td>0.012415</td>
+      <td>-0.018011</td>
+      <td>-0.034925</td>
+      <td>-0.045867</td>
+      <td>-0.005162</td>
+      <td>0.046034</td>
+      <td>0.034370</td>
+      <td>-0.039010</td>
+      <td>-0.025369</td>
+      <td>0.038541</td>
+      <td>-0.085155</td>
+      <td>-0.041455</td>
+      <td>-0.029486</td>
+      <td>0.053074</td>
+      <td>-0.009083</td>
+      <td>-0.033507</td>
+      <td>-0.042550</td>
+      <td>0.000563</td>
+      <td>0.030400</td>
+      <td>-0.028057</td>
+      <td>-0.011533</td>
+      <td>-0.007848</td>
+      <td>0.000112</td>
+      <td>-0.070099</td>
+      <td>0.017797</td>
+      <td>-0.028459</td>
+      <td>-0.032084</td>
+      <td>0.019352</td>
+      <td>-0.042274</td>
+      <td>0.027166</td>
+      <td>-0.048130</td>
+      <td>-0.049014</td>
+      <td>0.043783</td>
+      <td>0.006903</td>
+      <td>-0.007674</td>
+      <td>-0.011228</td>
+      <td>-0.031497</td>
+      <td>-0.030208</td>
+      <td>-0.013747</td>
+      <td>-0.035838</td>
+      <td>0.082691</td>
+      <td>-0.010778</td>
+    </tr>
+    <tr>
+      <th>strong_family_community_ties_rating</th>
+      <td>0.044822</td>
+      <td>-0.094621</td>
+      <td>-0.031207</td>
+      <td>0.044636</td>
+      <td>-0.038602</td>
+      <td>-0.047761</td>
+      <td>-0.010419</td>
+      <td>-0.001491</td>
+      <td>0.043315</td>
+      <td>-0.055429</td>
+      <td>-0.020433</td>
+      <td>-0.060513</td>
+      <td>-0.040227</td>
+      <td>-0.008816</td>
+      <td>0.045671</td>
+      <td>0.075588</td>
+      <td>-0.127440</td>
+      <td>0.014534</td>
+      <td>0.004910</td>
+      <td>-0.046360</td>
+      <td>-0.011363</td>
+      <td>-0.111437</td>
+      <td>0.043320</td>
+      <td>-0.015706</td>
+      <td>0.020631</td>
+      <td>-0.037002</td>
+      <td>0.057269</td>
+      <td>-0.062745</td>
+      <td>-0.040319</td>
+      <td>0.005774</td>
+      <td>-0.073444</td>
+      <td>0.023399</td>
+      <td>0.026554</td>
+      <td>-0.035568</td>
+      <td>-0.009356</td>
+      <td>-0.033444</td>
+      <td>0.017924</td>
+      <td>-0.049609</td>
+      <td>-0.027924</td>
+      <td>0.033728</td>
+      <td>-0.049442</td>
+      <td>-0.026092</td>
+      <td>0.014564</td>
+      <td>-0.000990</td>
+      <td>-0.019737</td>
+      <td>0.012220</td>
+      <td>-0.114371</td>
+      <td>0.077940</td>
+      <td>0.038437</td>
+      <td>-0.082861</td>
+      <td>-0.014790</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_limited_english_proficient</th>
+      <td>-0.063231</td>
+      <td>-0.069732</td>
+      <td>0.146366</td>
+      <td>-0.080685</td>
+      <td>-0.043235</td>
+      <td>-0.069655</td>
+      <td>-0.081091</td>
+      <td>0.199440</td>
+      <td>-0.046152</td>
+      <td>-0.064232</td>
+      <td>-0.063901</td>
+      <td>-0.042175</td>
+      <td>-0.068028</td>
+      <td>-0.073134</td>
+      <td>0.133673</td>
+      <td>0.211131</td>
+      <td>-0.064147</td>
+      <td>-0.064156</td>
+      <td>-0.084185</td>
+      <td>-0.070495</td>
+      <td>-0.062070</td>
+      <td>0.206990</td>
+      <td>-0.077923</td>
+      <td>-0.072732</td>
+      <td>-0.082851</td>
+      <td>-0.069154</td>
+      <td>-0.063293</td>
+      <td>-0.054899</td>
+      <td>-0.086855</td>
+      <td>0.170211</td>
+      <td>0.169147</td>
+      <td>-0.058503</td>
+      <td>-0.074958</td>
+      <td>-0.055525</td>
+      <td>-0.099197</td>
+      <td>-0.089376</td>
+      <td>-0.044278</td>
+      <td>0.156737</td>
+      <td>-0.096682</td>
+      <td>-0.043997</td>
+      <td>-0.046761</td>
+      <td>-0.092283</td>
+      <td>-0.058447</td>
+      <td>0.161693</td>
+      <td>-0.057373</td>
+      <td>-0.091400</td>
+      <td>-0.051587</td>
+      <td>0.203039</td>
+      <td>-0.048668</td>
+      <td>-0.081384</td>
+      <td>-0.019000</td>
+    </tr>
+    <tr>
+      <th>number_of_students_english</th>
+      <td>-0.005330</td>
+      <td>-0.026127</td>
+      <td>-0.021269</td>
+      <td>-0.023432</td>
+      <td>-0.090485</td>
+      <td>-0.055906</td>
+      <td>-0.013298</td>
+      <td>-0.025692</td>
+      <td>-0.052613</td>
+      <td>-0.023301</td>
+      <td>-0.031318</td>
+      <td>-0.050822</td>
+      <td>-0.003921</td>
+      <td>-0.025084</td>
+      <td>-0.053961</td>
+      <td>-0.058044</td>
+      <td>-0.039897</td>
+      <td>-0.068798</td>
+      <td>-0.008837</td>
+      <td>0.021844</td>
+      <td>-0.049611</td>
+      <td>-0.044373</td>
+      <td>-0.067610</td>
+      <td>-0.037654</td>
+      <td>0.035264</td>
+      <td>-0.042135</td>
+      <td>0.060853</td>
+      <td>-0.076085</td>
+      <td>-0.066536</td>
+      <td>-0.034816</td>
+      <td>0.001525</td>
+      <td>-0.089873</td>
+      <td>-0.050663</td>
+      <td>0.003487</td>
+      <td>-0.023247</td>
+      <td>-0.068449</td>
+      <td>-0.034918</td>
+      <td>-0.005814</td>
+      <td>-0.043230</td>
+      <td>-0.010570</td>
+      <td>-0.039323</td>
+      <td>-0.016493</td>
+      <td>-0.046304</td>
+      <td>-0.003069</td>
+      <td>-0.078164</td>
+      <td>0.009364</td>
+      <td>-0.068087</td>
+      <td>-0.065827</td>
+      <td>-0.051408</td>
+      <td>-0.036333</td>
+      <td>-0.033928</td>
+    </tr>
+    <tr>
+      <th>percent_ell</th>
+      <td>-0.007513</td>
+      <td>-0.014704</td>
+      <td>0.002371</td>
+      <td>-0.136388</td>
+      <td>-0.021259</td>
+      <td>-0.061111</td>
+      <td>0.018988</td>
+      <td>-0.067014</td>
+      <td>-0.031034</td>
+      <td>-0.035399</td>
+      <td>-0.048011</td>
+      <td>-0.072168</td>
+      <td>-0.022336</td>
+      <td>0.021594</td>
+      <td>-0.060488</td>
+      <td>-0.076927</td>
+      <td>0.052616</td>
+      <td>-0.065542</td>
+      <td>-0.013555</td>
+      <td>-0.063830</td>
+      <td>-0.066814</td>
+      <td>-0.001067</td>
+      <td>0.043943</td>
+      <td>-0.107151</td>
+      <td>-0.049159</td>
+      <td>-0.007997</td>
+      <td>-0.042525</td>
+      <td>-0.060303</td>
+      <td>0.014889</td>
+      <td>-0.071211</td>
+      <td>-0.070401</td>
+      <td>-0.023861</td>
+      <td>-0.020634</td>
+      <td>-0.042936</td>
+      <td>-0.012729</td>
+      <td>-0.013848</td>
+      <td>-0.058981</td>
+      <td>-0.022620</td>
+      <td>-0.034808</td>
+      <td>-0.039224</td>
+      <td>-0.046523</td>
+      <td>0.019842</td>
+      <td>-0.001723</td>
+      <td>-0.082890</td>
+      <td>-0.057768</td>
+      <td>-0.033504</td>
+      <td>-0.020491</td>
+      <td>-0.036736</td>
+      <td>-0.036009</td>
+      <td>-0.050240</td>
+      <td>-0.034704</td>
+    </tr>
+    <tr>
+      <th>economic_need_index</th>
+      <td>-0.100746</td>
+      <td>-0.075415</td>
+      <td>-0.004481</td>
+      <td>-0.035670</td>
+      <td>0.010957</td>
+      <td>-0.096728</td>
+      <td>0.014863</td>
+      <td>0.015589</td>
+      <td>-0.054638</td>
+      <td>-0.074852</td>
+      <td>-0.082124</td>
+      <td>-0.034713</td>
+      <td>-0.020743</td>
+      <td>-0.014702</td>
+      <td>-0.039593</td>
+      <td>-0.031977</td>
+      <td>-0.021247</td>
+      <td>-0.029718</td>
+      <td>-0.081027</td>
+      <td>-0.023427</td>
+      <td>-0.027641</td>
+      <td>-0.100927</td>
+      <td>0.004914</td>
+      <td>-0.028921</td>
+      <td>-0.037774</td>
+      <td>-0.057326</td>
+      <td>-0.080348</td>
+      <td>-0.062777</td>
+      <td>0.043620</td>
+      <td>-0.034915</td>
+      <td>-0.044530</td>
+      <td>-0.019236</td>
+      <td>-0.045863</td>
+      <td>-0.100602</td>
+      <td>0.029795</td>
+      <td>0.025734</td>
+      <td>-0.042107</td>
+      <td>-0.062528</td>
+      <td>-0.054376</td>
+      <td>-0.058717</td>
+      <td>-0.087854</td>
+      <td>0.001812</td>
+      <td>-0.059110</td>
+      <td>0.014237</td>
+      <td>-0.051079</td>
+      <td>0.009293</td>
+      <td>-0.109071</td>
+      <td>-0.029734</td>
+      <td>-0.031259</td>
+      <td>-0.033906</td>
+      <td>-0.038232</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_all_students_tested</th>
+      <td>-0.039774</td>
+      <td>-0.049774</td>
+      <td>-0.065134</td>
+      <td>-0.014895</td>
+      <td>-0.038464</td>
+      <td>-0.062608</td>
+      <td>-0.012080</td>
+      <td>-0.017181</td>
+      <td>-0.039731</td>
+      <td>-0.086601</td>
+      <td>-0.047613</td>
+      <td>-0.056678</td>
+      <td>-0.023712</td>
+      <td>-0.049720</td>
+      <td>-0.042078</td>
+      <td>-0.064114</td>
+      <td>-0.068782</td>
+      <td>-0.047302</td>
+      <td>-0.032554</td>
+      <td>0.007376</td>
+      <td>-0.054175</td>
+      <td>-0.037878</td>
+      <td>-0.044126</td>
+      <td>-0.055575</td>
+      <td>-0.020509</td>
+      <td>-0.029284</td>
+      <td>-0.064650</td>
+      <td>-0.056843</td>
+      <td>-0.046440</td>
+      <td>-0.021450</td>
+      <td>-0.037571</td>
+      <td>-0.063087</td>
+      <td>0.016885</td>
+      <td>-0.039357</td>
+      <td>-0.067790</td>
+      <td>-0.020255</td>
+      <td>-0.059122</td>
+      <td>-0.002210</td>
+      <td>-0.063552</td>
+      <td>-0.067691</td>
+      <td>-0.048537</td>
+      <td>-0.036931</td>
+      <td>-0.011603</td>
+      <td>-0.054712</td>
+      <td>-0.068521</td>
+      <td>-0.013199</td>
+      <td>-0.055583</td>
+      <td>-0.034720</td>
+      <td>-0.064793</td>
+      <td>-0.054159</td>
+      <td>-0.042577</td>
+    </tr>
+    <tr>
+      <th>average_class_size_english</th>
+      <td>-0.045723</td>
+      <td>-0.025958</td>
+      <td>-0.017896</td>
+      <td>-0.046230</td>
+      <td>-0.067847</td>
+      <td>-0.031018</td>
+      <td>-0.083987</td>
+      <td>-0.047475</td>
+      <td>-0.008078</td>
+      <td>-0.026142</td>
+      <td>-0.045835</td>
+      <td>-0.008549</td>
+      <td>-0.102656</td>
+      <td>0.003450</td>
+      <td>-0.061227</td>
+      <td>-0.028677</td>
+      <td>-0.091523</td>
+      <td>-0.098849</td>
+      <td>0.034468</td>
+      <td>-0.037591</td>
+      <td>-0.049311</td>
+      <td>-0.034688</td>
+      <td>0.024745</td>
+      <td>-0.045160</td>
+      <td>-0.112789</td>
+      <td>-0.091855</td>
+      <td>0.006255</td>
+      <td>-0.098781</td>
+      <td>-0.007585</td>
+      <td>-0.043117</td>
+      <td>-0.085107</td>
+      <td>-0.010178</td>
+      <td>-0.005799</td>
+      <td>-0.051704</td>
+      <td>-0.054972</td>
+      <td>-0.039618</td>
+      <td>-0.101080</td>
+      <td>-0.047485</td>
+      <td>0.033604</td>
+      <td>-0.058470</td>
+      <td>-0.056667</td>
+      <td>-0.144123</td>
+      <td>0.057897</td>
+      <td>-0.054810</td>
+      <td>-0.029719</td>
+      <td>-0.047365</td>
+      <td>-0.058530</td>
+      <td>-0.001681</td>
+      <td>-0.102300</td>
+      <td>-0.014337</td>
+      <td>-0.043241</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_all_students_tested</th>
+      <td>-0.035531</td>
+      <td>-0.047752</td>
+      <td>-0.066216</td>
+      <td>-0.024635</td>
+      <td>-0.045929</td>
+      <td>-0.071768</td>
+      <td>-0.001873</td>
+      <td>-0.036770</td>
+      <td>-0.038462</td>
+      <td>-0.083315</td>
+      <td>-0.046014</td>
+      <td>-0.051755</td>
+      <td>-0.039184</td>
+      <td>-0.046027</td>
+      <td>-0.042295</td>
+      <td>-0.074631</td>
+      <td>-0.072760</td>
+      <td>-0.042581</td>
+      <td>-0.037401</td>
+      <td>0.011898</td>
+      <td>-0.050582</td>
+      <td>-0.044189</td>
+      <td>-0.037457</td>
+      <td>-0.062420</td>
+      <td>-0.024048</td>
+      <td>-0.032320</td>
+      <td>-0.063542</td>
+      <td>-0.055180</td>
+      <td>-0.041551</td>
+      <td>-0.036343</td>
+      <td>-0.046223</td>
+      <td>-0.079454</td>
+      <td>0.012762</td>
+      <td>-0.030591</td>
+      <td>-0.066523</td>
+      <td>-0.026684</td>
+      <td>-0.054384</td>
+      <td>-0.005332</td>
+      <td>-0.068883</td>
+      <td>-0.066219</td>
+      <td>-0.052232</td>
+      <td>-0.041131</td>
+      <td>-0.015687</td>
+      <td>-0.057790</td>
+      <td>-0.065031</td>
+      <td>-0.021605</td>
+      <td>-0.051993</td>
+      <td>-0.037012</td>
+      <td>-0.061810</td>
+      <td>-0.055611</td>
+      <td>-0.044641</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_american_indian_or_alaska_native</th>
+      <td>-0.029252</td>
+      <td>-0.111701</td>
+      <td>-0.058255</td>
+      <td>-0.095040</td>
+      <td>0.010130</td>
+      <td>0.002759</td>
+      <td>-0.016502</td>
+      <td>-0.079890</td>
+      <td>-0.043020</td>
+      <td>-0.105461</td>
+      <td>-0.021001</td>
+      <td>-0.069372</td>
+      <td>-0.057528</td>
+      <td>-0.021753</td>
+      <td>-0.123689</td>
+      <td>-0.027123</td>
+      <td>0.026106</td>
+      <td>-0.081603</td>
+      <td>-0.097854</td>
+      <td>-0.027772</td>
+      <td>-0.056229</td>
+      <td>-0.047097</td>
+      <td>-0.079920</td>
+      <td>0.019640</td>
+      <td>-0.046044</td>
+      <td>-0.094784</td>
+      <td>-0.100336</td>
+      <td>-0.063185</td>
+      <td>-0.075477</td>
+      <td>0.078663</td>
+      <td>-0.117682</td>
+      <td>0.047407</td>
+      <td>-0.099322</td>
+      <td>0.008482</td>
+      <td>-0.042854</td>
+      <td>0.018637</td>
+      <td>-0.076786</td>
+      <td>-0.043278</td>
+      <td>-0.116288</td>
+      <td>-0.061195</td>
+      <td>-0.103189</td>
+      <td>-0.065814</td>
+      <td>0.046863</td>
+      <td>-0.053614</td>
+      <td>-0.073389</td>
+      <td>-0.045033</td>
+      <td>-0.051058</td>
+      <td>-0.080362</td>
+      <td>-0.032335</td>
+      <td>-0.046769</td>
+      <td>-0.049603</td>
+    </tr>
+    <tr>
+      <th>grade_7_ela_4s_black_or_african_american</th>
+      <td>-0.123725</td>
+      <td>-0.096014</td>
+      <td>0.012897</td>
+      <td>-0.099580</td>
+      <td>-0.007079</td>
+      <td>-0.012599</td>
+      <td>-0.069331</td>
+      <td>-0.135178</td>
+      <td>-0.029570</td>
+      <td>-0.035435</td>
+      <td>-0.106657</td>
+      <td>-0.036191</td>
+      <td>-0.012502</td>
+      <td>-0.093659</td>
+      <td>-0.050142</td>
+      <td>-0.135896</td>
+      <td>-0.028354</td>
+      <td>-0.004346</td>
+      <td>-0.099881</td>
+      <td>-0.043083</td>
+      <td>-0.061767</td>
+      <td>-0.084479</td>
+      <td>-0.015749</td>
+      <td>-0.058966</td>
+      <td>-0.071345</td>
+      <td>-0.065669</td>
+      <td>-0.033634</td>
+      <td>-0.090996</td>
+      <td>0.032748</td>
+      <td>-0.082131</td>
+      <td>0.001759</td>
+      <td>0.134120</td>
+      <td>-0.099525</td>
+      <td>-0.126595</td>
+      <td>-0.171355</td>
+      <td>-0.008137</td>
+      <td>-0.055875</td>
+      <td>-0.134092</td>
+      <td>-0.067471</td>
+      <td>-0.014552</td>
+      <td>-0.058657</td>
+      <td>0.016765</td>
+      <td>-0.040536</td>
+      <td>-0.137690</td>
+      <td>-0.060699</td>
+      <td>-0.066443</td>
+      <td>-0.056412</td>
+      <td>0.019086</td>
+      <td>-0.063024</td>
+      <td>-0.134396</td>
+      <td>-0.057241</td>
+    </tr>
+    <tr>
+      <th>in_manhattan</th>
+      <td>-0.044026</td>
+      <td>-0.118795</td>
+      <td>-0.057871</td>
+      <td>-0.023531</td>
+      <td>-0.055262</td>
+      <td>-0.056533</td>
+      <td>-0.080942</td>
+      <td>-0.079662</td>
+      <td>-0.019178</td>
+      <td>-0.075968</td>
+      <td>-0.084241</td>
+      <td>-0.022950</td>
+      <td>-0.068555</td>
+      <td>-0.069937</td>
+      <td>-0.056616</td>
+      <td>-0.079604</td>
+      <td>-0.046380</td>
+      <td>-0.107932</td>
+      <td>-0.007282</td>
+      <td>-0.070200</td>
+      <td>-0.054405</td>
+      <td>-0.000016</td>
+      <td>-0.140851</td>
+      <td>-0.059804</td>
+      <td>-0.057758</td>
+      <td>-0.068205</td>
+      <td>-0.041312</td>
+      <td>-0.075795</td>
+      <td>-0.103925</td>
+      <td>-0.014047</td>
+      <td>-0.023771</td>
+      <td>-0.116963</td>
+      <td>-0.076542</td>
+      <td>0.008099</td>
+      <td>-0.109024</td>
+      <td>-0.074231</td>
+      <td>-0.072968</td>
+      <td>-0.070187</td>
+      <td>-0.075996</td>
+      <td>-0.025948</td>
+      <td>-0.077586</td>
+      <td>-0.077678</td>
+      <td>-0.074070</td>
+      <td>-0.061018</td>
+      <td>-0.021032</td>
+      <td>-0.072102</td>
+      <td>-0.068365</td>
+      <td>-0.079459</td>
+      <td>-0.014971</td>
+      <td>-0.071846</td>
+      <td>-0.061945</td>
+    </tr>
+    <tr>
+      <th>rigorous_instruction_rating</th>
+      <td>-0.022076</td>
+      <td>-0.067726</td>
+      <td>-0.036907</td>
+      <td>-0.155943</td>
+      <td>-0.049874</td>
+      <td>-0.034805</td>
+      <td>-0.080295</td>
+      <td>-0.050188</td>
+      <td>-0.085762</td>
+      <td>-0.074904</td>
+      <td>-0.026207</td>
+      <td>-0.025777</td>
+      <td>-0.099147</td>
+      <td>-0.110376</td>
+      <td>-0.070653</td>
+      <td>-0.068883</td>
+      <td>-0.064438</td>
+      <td>-0.114575</td>
+      <td>-0.067193</td>
+      <td>-0.014641</td>
+      <td>-0.029075</td>
+      <td>-0.031013</td>
+      <td>-0.141736</td>
+      <td>-0.016625</td>
+      <td>-0.094407</td>
+      <td>-0.039501</td>
+      <td>-0.056826</td>
+      <td>-0.105694</td>
+      <td>-0.080720</td>
+      <td>-0.055305</td>
+      <td>0.038590</td>
+      <td>-0.106886</td>
+      <td>-0.041050</td>
+      <td>-0.108829</td>
+      <td>-0.088787</td>
+      <td>-0.042210</td>
+      <td>-0.061584</td>
+      <td>-0.075196</td>
+      <td>-0.121179</td>
+      <td>-0.012858</td>
+      <td>-0.092553</td>
+      <td>-0.008189</td>
+      <td>-0.131019</td>
+      <td>0.008344</td>
+      <td>-0.100821</td>
+      <td>-0.037866</td>
+      <td>-0.021245</td>
+      <td>-0.074802</td>
+      <td>-0.054948</td>
+      <td>-0.127417</td>
+      <td>-0.064636</td>
+    </tr>
+    <tr>
+      <th>number_of_classes_english</th>
+      <td>-0.066620</td>
+      <td>-0.075920</td>
+      <td>-0.057836</td>
+      <td>-0.074096</td>
+      <td>-0.038559</td>
+      <td>-0.086022</td>
+      <td>-0.067813</td>
+      <td>0.001069</td>
+      <td>-0.087199</td>
+      <td>-0.089755</td>
+      <td>-0.096383</td>
+      <td>-0.094156</td>
+      <td>-0.057276</td>
+      <td>-0.070634</td>
+      <td>-0.002105</td>
+      <td>-0.024388</td>
+      <td>-0.056066</td>
+      <td>-0.136453</td>
+      <td>-0.057135</td>
+      <td>-0.071504</td>
+      <td>-0.086511</td>
+      <td>-0.090482</td>
+      <td>-0.035502</td>
+      <td>-0.103299</td>
+      <td>-0.024837</td>
+      <td>-0.113752</td>
+      <td>-0.011780</td>
+      <td>-0.018910</td>
+      <td>-0.121993</td>
+      <td>-0.047077</td>
+      <td>-0.051769</td>
+      <td>-0.064544</td>
+      <td>-0.103889</td>
+      <td>-0.077106</td>
+      <td>-0.063849</td>
+      <td>-0.079985</td>
+      <td>-0.080372</td>
+      <td>-0.109784</td>
+      <td>-0.013242</td>
+      <td>-0.073809</td>
+      <td>-0.043598</td>
+      <td>0.052202</td>
+      <td>-0.117279</td>
+      <td>-0.067664</td>
+      <td>-0.109978</td>
+      <td>-0.054586</td>
+      <td>-0.077381</td>
+      <td>-0.124413</td>
+      <td>-0.063366</td>
+      <td>0.006205</td>
+      <td>-0.065624</td>
+    </tr>
+    <tr>
+      <th>supportive_environment_rating</th>
+      <td>-0.086738</td>
+      <td>-0.050938</td>
+      <td>-0.029049</td>
+      <td>-0.042171</td>
+      <td>-0.134487</td>
+      <td>-0.080511</td>
+      <td>-0.128805</td>
+      <td>-0.036940</td>
+      <td>-0.081118</td>
+      <td>-0.021869</td>
+      <td>-0.101568</td>
+      <td>-0.006394</td>
+      <td>-0.067389</td>
+      <td>-0.042494</td>
+      <td>-0.117116</td>
+      <td>-0.032467</td>
+      <td>-0.041968</td>
+      <td>-0.068442</td>
+      <td>-0.150714</td>
+      <td>-0.044023</td>
+      <td>-0.014739</td>
+      <td>-0.142176</td>
+      <td>0.034183</td>
+      <td>-0.089730</td>
+      <td>-0.133138</td>
+      <td>-0.147207</td>
+      <td>-0.077844</td>
+      <td>-0.015088</td>
+      <td>-0.037929</td>
+      <td>-0.075900</td>
+      <td>-0.053148</td>
+      <td>-0.003313</td>
+      <td>-0.073643</td>
+      <td>-0.132395</td>
+      <td>-0.076809</td>
+      <td>-0.098591</td>
+      <td>-0.086182</td>
+      <td>-0.046076</td>
+      <td>-0.010253</td>
+      <td>-0.101582</td>
+      <td>-0.096959</td>
+      <td>-0.111797</td>
+      <td>-0.011150</td>
+      <td>-0.067014</td>
+      <td>-0.052357</td>
+      <td>-0.114751</td>
+      <td>-0.086254</td>
+      <td>0.004866</td>
+      <td>-0.058687</td>
+      <td>-0.066627</td>
+      <td>-0.068150</td>
+    </tr>
+    <tr>
+      <th>percent_white</th>
+      <td>-0.079839</td>
+      <td>-0.086335</td>
+      <td>-0.067210</td>
+      <td>-0.089836</td>
+      <td>-0.062853</td>
+      <td>-0.003826</td>
+      <td>-0.094170</td>
+      <td>-0.085723</td>
+      <td>-0.055752</td>
+      <td>-0.136781</td>
+      <td>-0.093718</td>
+      <td>-0.041342</td>
+      <td>-0.019845</td>
+      <td>-0.073030</td>
+      <td>-0.123077</td>
+      <td>-0.078958</td>
+      <td>-0.115913</td>
+      <td>-0.074857</td>
+      <td>-0.063314</td>
+      <td>-0.041741</td>
+      <td>-0.099047</td>
+      <td>-0.092941</td>
+      <td>-0.064240</td>
+      <td>-0.061699</td>
+      <td>-0.047300</td>
+      <td>-0.139384</td>
+      <td>-0.019148</td>
+      <td>-0.023973</td>
+      <td>-0.070967</td>
+      <td>-0.127086</td>
+      <td>-0.109489</td>
+      <td>-0.089295</td>
+      <td>-0.042300</td>
+      <td>-0.049951</td>
+      <td>-0.089095</td>
+      <td>-0.046659</td>
+      <td>-0.052776</td>
+      <td>-0.090561</td>
+      <td>-0.138557</td>
+      <td>-0.046140</td>
+      <td>-0.104084</td>
+      <td>-0.031150</td>
+      <td>-0.066094</td>
+      <td>-0.108160</td>
+      <td>-0.053935</td>
+      <td>-0.050513</td>
+      <td>-0.104430</td>
+      <td>-0.053406</td>
+      <td>-0.054064</td>
+      <td>-0.088233</td>
+      <td>-0.074056</td>
+    </tr>
+    <tr>
+      <th>effective_school_leadership_rating</th>
+      <td>-0.087766</td>
+      <td>-0.053940</td>
+      <td>-0.105064</td>
+      <td>-0.066014</td>
+      <td>-0.108185</td>
+      <td>-0.150380</td>
+      <td>-0.074610</td>
+      <td>-0.062760</td>
+      <td>-0.103848</td>
+      <td>-0.035660</td>
+      <td>-0.099514</td>
+      <td>-0.180585</td>
+      <td>-0.078407</td>
+      <td>0.003254</td>
+      <td>-0.081218</td>
+      <td>-0.100947</td>
+      <td>-0.105095</td>
+      <td>-0.104890</td>
+      <td>-0.122814</td>
+      <td>0.033047</td>
+      <td>-0.095944</td>
+      <td>-0.152307</td>
+      <td>-0.029095</td>
+      <td>-0.089137</td>
+      <td>-0.053986</td>
+      <td>-0.078080</td>
+      <td>-0.079848</td>
+      <td>-0.098931</td>
+      <td>-0.044563</td>
+      <td>-0.113196</td>
+      <td>-0.106895</td>
+      <td>-0.027381</td>
+      <td>-0.112152</td>
+      <td>-0.129717</td>
+      <td>-0.043287</td>
+      <td>-0.128492</td>
+      <td>-0.059229</td>
+      <td>-0.020264</td>
+      <td>-0.062005</td>
+      <td>-0.141372</td>
+      <td>-0.054077</td>
+      <td>-0.102407</td>
+      <td>-0.075425</td>
+      <td>-0.092186</td>
+      <td>-0.075331</td>
+      <td>-0.114945</td>
+      <td>-0.094429</td>
+      <td>-0.054772</td>
+      <td>-0.117266</td>
+      <td>-0.027238</td>
+      <td>-0.083187</td>
+    </tr>
+    <tr>
+      <th>trust_rating</th>
+      <td>-0.093865</td>
+      <td>-0.165554</td>
+      <td>-0.151621</td>
+      <td>-0.031859</td>
+      <td>-0.016154</td>
+      <td>-0.097798</td>
+      <td>-0.134432</td>
+      <td>-0.050041</td>
+      <td>-0.101177</td>
+      <td>-0.065758</td>
+      <td>-0.062828</td>
+      <td>-0.081123</td>
+      <td>-0.081316</td>
+      <td>-0.107223</td>
+      <td>-0.107084</td>
+      <td>-0.118399</td>
+      <td>-0.089953</td>
+      <td>-0.164169</td>
+      <td>-0.050794</td>
+      <td>-0.037372</td>
+      <td>-0.085718</td>
+      <td>-0.133385</td>
+      <td>-0.056478</td>
+      <td>-0.069553</td>
+      <td>-0.120494</td>
+      <td>-0.126261</td>
+      <td>-0.152557</td>
+      <td>-0.060761</td>
+      <td>-0.044544</td>
+      <td>-0.062129</td>
+      <td>-0.118347</td>
+      <td>-0.086546</td>
+      <td>-0.063589</td>
+      <td>-0.065664</td>
+      <td>-0.121912</td>
+      <td>-0.048557</td>
+      <td>-0.045978</td>
+      <td>-0.173814</td>
+      <td>-0.109040</td>
+      <td>-0.091813</td>
+      <td>-0.092789</td>
+      <td>-0.080061</td>
+      <td>-0.095308</td>
+      <td>-0.044708</td>
+      <td>-0.144688</td>
+      <td>-0.110754</td>
+      <td>-0.132489</td>
+      <td>-0.033065</td>
+      <td>-0.089505</td>
+      <td>-0.098624</td>
+      <td>-0.091353</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_american_indian_or_alaska_native</th>
+      <td>-0.093423</td>
+      <td>0.060351</td>
+      <td>-0.113366</td>
+      <td>-0.213105</td>
+      <td>-0.138811</td>
+      <td>-0.152731</td>
+      <td>-0.124788</td>
+      <td>0.065377</td>
+      <td>-0.097668</td>
+      <td>-0.147706</td>
+      <td>-0.086278</td>
+      <td>-0.072215</td>
+      <td>0.039307</td>
+      <td>-0.121536</td>
+      <td>-0.205354</td>
+      <td>-0.139809</td>
+      <td>-0.117851</td>
+      <td>-0.104131</td>
+      <td>-0.003665</td>
+      <td>-0.122143</td>
+      <td>-0.107065</td>
+      <td>-0.110922</td>
+      <td>0.070853</td>
+      <td>-0.131640</td>
+      <td>-0.131621</td>
+      <td>-0.172769</td>
+      <td>0.066598</td>
+      <td>-0.103165</td>
+      <td>-0.115034</td>
+      <td>-0.145598</td>
+      <td>0.077975</td>
+      <td>-0.140855</td>
+      <td>-0.198136</td>
+      <td>-0.130126</td>
+      <td>-0.110161</td>
+      <td>-0.127937</td>
+      <td>0.078510</td>
+      <td>-0.115597</td>
+      <td>-0.199549</td>
+      <td>-0.109467</td>
+      <td>0.055020</td>
+      <td>-0.112671</td>
+      <td>-0.157245</td>
+      <td>-0.113398</td>
+      <td>-0.155246</td>
+      <td>0.027363</td>
+      <td>-0.103653</td>
+      <td>-0.144966</td>
+      <td>-0.099769</td>
+      <td>-0.113142</td>
+      <td>-0.093259</td>
+    </tr>
+    <tr>
+      <th>grade_7_math_4s_hispanic_or_latino</th>
+      <td>-0.083128</td>
+      <td>-0.059874</td>
+      <td>-0.118641</td>
+      <td>-0.104438</td>
+      <td>-0.119192</td>
+      <td>-0.098456</td>
+      <td>-0.110806</td>
+      <td>-0.080728</td>
+      <td>-0.149489</td>
+      <td>-0.049797</td>
+      <td>-0.137993</td>
+      <td>-0.112483</td>
+      <td>-0.076594</td>
+      <td>-0.080034</td>
+      <td>-0.092440</td>
+      <td>0.070804</td>
+      <td>-0.107916</td>
+      <td>-0.171264</td>
+      <td>-0.105907</td>
+      <td>-0.135609</td>
+      <td>-0.084670</td>
+      <td>-0.078417</td>
+      <td>-0.154002</td>
+      <td>-0.104137</td>
+      <td>-0.032982</td>
+      <td>-0.115638</td>
+      <td>-0.046516</td>
+      <td>-0.083702</td>
+      <td>-0.108317</td>
+      <td>-0.137167</td>
+      <td>-0.129482</td>
+      <td>-0.048595</td>
+      <td>-0.111819</td>
+      <td>-0.113118</td>
+      <td>-0.095798</td>
+      <td>-0.121263</td>
+      <td>-0.049980</td>
+      <td>-0.110804</td>
+      <td>-0.059198</td>
+      <td>-0.138137</td>
+      <td>-0.012183</td>
+      <td>-0.142168</td>
+      <td>-0.158136</td>
+      <td>-0.069265</td>
+      <td>-0.096697</td>
+      <td>-0.097136</td>
+      <td>-0.100493</td>
+      <td>-0.108799</td>
+      <td>-0.069692</td>
+      <td>-0.097945</td>
+      <td>-0.096005</td>
+    </tr>
+    <tr>
+      <th>percent_black__hispanic</th>
+      <td>-0.110928</td>
+      <td>-0.093820</td>
+      <td>-0.131839</td>
+      <td>-0.053193</td>
+      <td>-0.118990</td>
+      <td>-0.122984</td>
+      <td>-0.097028</td>
+      <td>-0.090088</td>
+      <td>-0.096265</td>
+      <td>-0.110734</td>
+      <td>-0.087411</td>
+      <td>-0.121550</td>
+      <td>-0.117246</td>
+      <td>-0.123352</td>
+      <td>-0.077740</td>
+      <td>-0.110135</td>
+      <td>-0.099544</td>
+      <td>-0.106787</td>
+      <td>-0.102130</td>
+      <td>-0.095929</td>
+      <td>-0.096741</td>
+      <td>-0.077470</td>
+      <td>-0.116899</td>
+      <td>-0.112221</td>
+      <td>-0.112714</td>
+      <td>-0.106429</td>
+      <td>-0.132129</td>
+      <td>-0.105278</td>
+      <td>-0.111667</td>
+      <td>-0.070671</td>
+      <td>-0.079428</td>
+      <td>-0.062119</td>
+      <td>-0.109322</td>
+      <td>-0.127854</td>
+      <td>-0.135684</td>
+      <td>-0.115418</td>
+      <td>-0.119482</td>
+      <td>-0.086534</td>
+      <td>-0.071600</td>
+      <td>-0.128059</td>
+      <td>-0.055783</td>
+      <td>-0.149854</td>
+      <td>-0.088661</td>
+      <td>-0.096573</td>
+      <td>-0.137277</td>
+      <td>-0.110896</td>
+      <td>-0.100728</td>
+      <td>-0.078095</td>
+      <td>-0.145250</td>
+      <td>-0.089843</td>
+      <td>-0.103967</td>
+    </tr>
+    <tr>
+      <th>percent_hispanic</th>
+      <td>-0.098668</td>
+      <td>-0.130321</td>
+      <td>-0.143692</td>
+      <td>-0.044190</td>
+      <td>-0.167433</td>
+      <td>-0.142973</td>
+      <td>-0.109685</td>
+      <td>-0.127172</td>
+      <td>-0.114305</td>
+      <td>-0.100379</td>
+      <td>-0.092645</td>
+      <td>-0.129868</td>
+      <td>-0.167258</td>
+      <td>-0.142761</td>
+      <td>-0.070990</td>
+      <td>-0.166001</td>
+      <td>-0.148513</td>
+      <td>-0.075031</td>
+      <td>-0.106824</td>
+      <td>-0.111387</td>
+      <td>-0.096181</td>
+      <td>-0.108383</td>
+      <td>-0.138181</td>
+      <td>-0.132198</td>
+      <td>-0.126389</td>
+      <td>-0.157982</td>
+      <td>-0.159523</td>
+      <td>-0.120641</td>
+      <td>-0.051914</td>
+      <td>-0.109188</td>
+      <td>-0.118256</td>
+      <td>-0.080187</td>
+      <td>-0.128768</td>
+      <td>-0.127745</td>
+      <td>-0.135212</td>
+      <td>-0.123544</td>
+      <td>-0.119155</td>
+      <td>-0.120819</td>
+      <td>-0.122907</td>
+      <td>-0.111834</td>
+      <td>-0.105071</td>
+      <td>-0.121862</td>
+      <td>-0.115832</td>
+      <td>-0.095455</td>
+      <td>-0.169191</td>
+      <td>-0.166832</td>
+      <td>-0.114381</td>
+      <td>-0.105732</td>
+      <td>-0.127534</td>
+      <td>-0.093452</td>
+      <td>-0.119889</td>
+    </tr>
+    <tr>
+      <th>selective</th>
+      <td>-0.037013</td>
+      <td>-0.115702</td>
+      <td>-0.160611</td>
+      <td>-0.185328</td>
+      <td>-0.160345</td>
+      <td>-0.045200</td>
+      <td>-0.239315</td>
+      <td>-0.139185</td>
+      <td>-0.152260</td>
+      <td>-0.103216</td>
+      <td>-0.111889</td>
+      <td>-0.168371</td>
+      <td>-0.261282</td>
+      <td>-0.125877</td>
+      <td>-0.043345</td>
+      <td>-0.158086</td>
+      <td>-0.129144</td>
+      <td>-0.087046</td>
+      <td>-0.099151</td>
+      <td>-0.192578</td>
+      <td>-0.119623</td>
+      <td>-0.106805</td>
+      <td>-0.123250</td>
+      <td>-0.161329</td>
+      <td>-0.171927</td>
+      <td>-0.241566</td>
+      <td>-0.132931</td>
+      <td>-0.097657</td>
+      <td>-0.145291</td>
+      <td>-0.091328</td>
+      <td>-0.157052</td>
+      <td>-0.033128</td>
+      <td>-0.151132</td>
+      <td>-0.176100</td>
+      <td>-0.163366</td>
+      <td>-0.149986</td>
+      <td>-0.155967</td>
+      <td>-0.162168</td>
+      <td>-0.036741</td>
+      <td>-0.169564</td>
+      <td>-0.163373</td>
+      <td>-0.190713</td>
+      <td>-0.154501</td>
+      <td>-0.009641</td>
+      <td>-0.175332</td>
+      <td>-0.178963</td>
+      <td>-0.087518</td>
+      <td>-0.167992</td>
+      <td>-0.162952</td>
+      <td>-0.130005</td>
+      <td>-0.137657</td>
+    </tr>
+    <tr>
+      <th>in_staten</th>
+      <td>-0.149540</td>
+      <td>-0.134313</td>
+      <td>-0.217543</td>
+      <td>-0.165968</td>
+      <td>-0.106066</td>
+      <td>-0.159212</td>
+      <td>-0.200773</td>
+      <td>-0.202097</td>
+      <td>-0.161980</td>
+      <td>-0.080266</td>
+      <td>-0.082980</td>
+      <td>-0.147311</td>
+      <td>-0.249092</td>
+      <td>-0.176636</td>
+      <td>-0.167414</td>
+      <td>-0.147686</td>
+      <td>-0.141144</td>
+      <td>-0.148637</td>
+      <td>-0.219215</td>
+      <td>-0.141319</td>
+      <td>-0.165176</td>
+      <td>-0.135484</td>
+      <td>-0.131943</td>
+      <td>-0.128194</td>
+      <td>-0.256694</td>
+      <td>-0.071494</td>
+      <td>-0.193924</td>
+      <td>-0.153629</td>
+      <td>-0.155878</td>
+      <td>-0.247610</td>
+      <td>-0.300026</td>
+      <td>-0.129401</td>
+      <td>-0.121391</td>
+      <td>-0.097603</td>
+      <td>-0.147268</td>
+      <td>-0.244614</td>
+      <td>-0.239101</td>
+      <td>-0.130959</td>
+      <td>-0.033711</td>
+      <td>-0.165501</td>
+      <td>-0.201784</td>
+      <td>-0.143267</td>
+      <td>-0.165136</td>
+      <td>-0.167314</td>
+      <td>-0.144767</td>
+      <td>-0.141737</td>
+      <td>-0.156172</td>
+      <td>-0.220333</td>
+      <td>-0.178988</td>
+      <td>-0.132430</td>
+      <td>-0.162015</td>
+    </tr>
+    <tr>
+      <th>percent_of_students_chronically_absent</th>
+      <td>-0.291975</td>
+      <td>-0.193254</td>
+      <td>-0.205771</td>
+      <td>-0.190248</td>
+      <td>-0.254491</td>
+      <td>-0.198537</td>
+      <td>-0.219032</td>
+      <td>-0.230459</td>
+      <td>-0.236274</td>
+      <td>-0.238896</td>
+      <td>-0.258020</td>
+      <td>-0.254048</td>
+      <td>-0.217043</td>
+      <td>-0.210445</td>
+      <td>-0.181800</td>
+      <td>-0.267267</td>
+      <td>-0.214507</td>
+      <td>-0.230098</td>
+      <td>-0.218779</td>
+      <td>-0.205585</td>
+      <td>-0.236859</td>
+      <td>-0.222191</td>
+      <td>-0.173489</td>
+      <td>-0.240479</td>
+      <td>-0.261212</td>
+      <td>-0.264049</td>
+      <td>-0.235632</td>
+      <td>-0.244197</td>
+      <td>-0.149757</td>
+      <td>-0.225745</td>
+      <td>-0.248670</td>
+      <td>-0.202664</td>
+      <td>-0.229651</td>
+      <td>-0.214657</td>
+      <td>-0.227878</td>
+      <td>-0.235604</td>
+      <td>-0.214101</td>
+      <td>-0.261688</td>
+      <td>-0.248799</td>
+      <td>-0.163759</td>
+      <td>-0.229149</td>
+      <td>-0.237773</td>
+      <td>-0.206588</td>
+      <td>-0.217467</td>
+      <td>-0.223026</td>
+      <td>-0.252947</td>
+      <td>-0.164437</td>
+      <td>-0.220700</td>
+      <td>-0.228614</td>
+      <td>-0.252092</td>
+      <td>-0.225008</td>
+    </tr>
+    <tr>
+      <th>in_queens</th>
+      <td>-0.297398</td>
+      <td>-0.221277</td>
+      <td>-0.232091</td>
+      <td>-0.232651</td>
+      <td>-0.331926</td>
+      <td>-0.289049</td>
+      <td>-0.197389</td>
+      <td>-0.275872</td>
+      <td>-0.255568</td>
+      <td>-0.283496</td>
+      <td>-0.288416</td>
+      <td>-0.325768</td>
+      <td>-0.233082</td>
+      <td>-0.243453</td>
+      <td>-0.217386</td>
+      <td>-0.222789</td>
+      <td>-0.290717</td>
+      <td>-0.289578</td>
+      <td>-0.249397</td>
+      <td>-0.250555</td>
+      <td>-0.271763</td>
+      <td>-0.271020</td>
+      <td>-0.205363</td>
+      <td>-0.302267</td>
+      <td>-0.245403</td>
+      <td>-0.246277</td>
+      <td>-0.235288</td>
+      <td>-0.289402</td>
+      <td>-0.231028</td>
+      <td>-0.291039</td>
+      <td>-0.278724</td>
+      <td>-0.212610</td>
+      <td>-0.261608</td>
+      <td>-0.280893</td>
+      <td>-0.270415</td>
+      <td>-0.252655</td>
+      <td>-0.222510</td>
+      <td>-0.304324</td>
+      <td>-0.255949</td>
+      <td>-0.260149</td>
+      <td>-0.265480</td>
+      <td>-0.298359</td>
+      <td>-0.203762</td>
+      <td>-0.265317</td>
+      <td>-0.262008</td>
+      <td>-0.211619</td>
+      <td>-0.263413</td>
+      <td>-0.196738</td>
+      <td>-0.312908</td>
+      <td>-0.302655</td>
+      <td>-0.259976</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+## Distributions
+### Most positively-influential features
+Using the average coefficients, we can discover the features that have the greatest effect in predicting both a 1 (positive) or a zero (negative).  Histograms can show us the different distributions for high-registering and low-registering schools in these categories.
+
+
+```python
+# Get the top and bottom 5 most influential coefficients
+top_features, bottom_features = list(sorted_coefs.index[:6]), list(sorted_coefs.index[-6:])
+fig = plt.figure(figsize=(20,60))
+for c in top_features:
+    ax = fig.add_subplot(6,2,top_features.index(c)+1)
+    ax.set_title('Distribution for {}'.format(c), fontsize=17)
+    ax.hist(X_pos[c], bins=20, alpha=0.5, label="high registrants", density=True)
+    ax.hist(X_neg[c], bins=20, alpha=0.5, label="low registrants", density=True)
+    ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_hists_positive_features.png" />
+
+Unsurprisingly, `average_math_proficiency` and `average_ela_proficiency` are both strong predictors of a school with high SHSAT registrations.  From conversations with New York parents, `percent_asian` is also unsurprising as that subpopulation has a reputation for aggressively pursuing registration in specialized high school.  The `grade_7_ela_4s_hispanic_or_latino` is a puzzle, particularly since `grade_7_math_4s_hispanic_or_latino` has a fairly high *negative* coefficient.  The distribution of all of these shows strong separation between the high-registration and low-registration groups.  `in_brooklyn` does not look like it should be as influential as it is, and `strong_family_community_ties_percent`, while making intuitive sense, looks basically like two normal distributions around the same mean with different standard deviations.
+
+### Most negatively-influential features
+
+
+```python
+fig = plt.figure(figsize=(20,60))
+for c in bottom_features:
+    ax = fig.add_subplot(6,2,bottom_features.index(c)+1)
+    ax.set_title('Distribution for {}'.format(c), fontsize=17)
+    ax.hist(X_pos[c], bins=20, alpha=0.5, label="high registrants", density=True)
+    ax.hist(X_neg[c], bins=20, alpha=0.5, label="low registrants", density=True)
+    ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_hists_negative_features.png" />
+
+The presence of `percent_black__hispanic` and `percent_hispanic` on this list reinforces PASSNYC's mission:  clearly the higher the share of these groups in a school, the less likely they are to have high test registrations.  The three dummy variables, `in_queens`, `in_staten` and `selective`, again don't look as influential as they are, while `percent_of_students_chronically_absent` makes both intuitive and visual sense as a predictor of registration level.
+
+The fact that `grade_7_ela_4s_hispanic_or_latino` and `grade_7_math_4s_hispanic_or_latino` have nearly opposite coefficients warrants some further investigation.  If we simply plot the two groups against each other, we can see they both have strong correlation--albeit it is stronger among high registrants, perhaps reflecting a greater difference in language skills than math skills between the two groups.
+
+
+```python
+import seaborn as sns
+fig, ax = plt.subplots(figsize=(10,10))
+
+ax = sns.regplot(X_pos.grade_7_math_4s_hispanic_or_latino, X_pos.grade_7_ela_4s_hispanic_or_latino, label="High Registrations")
+ax = sns.regplot(X_neg.grade_7_math_4s_hispanic_or_latino, X_neg.grade_7_ela_4s_hispanic_or_latino, label="Low Registrations")
+ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_corr_math_ela.png" />
+
+And if we plot a single-variable logistic regression for each of them against the target variable, we can see that they are, in fact, independently positive predictors.
+
+
+```python
+fig, ax = plt.subplots(figsize=(10,10))
+ax = sns.regplot(X_i.grade_7_math_4s_hispanic_or_latino, y, logistic=True, label="Math")
+ax = sns.regplot(X_i.grade_7_ela_4s_hispanic_or_latino, y, logistic=True, label="English")
+ax.set_xlabel('Number of Students achieving a score of 4', fontsize=15)
+ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_lr_math_ela.png" />
+
+It must be, therefore, that the bulk of the positive variation that `grade_7_math_4s_hispanic_or_latino` is covered by other variables (perhaps the ela scores), and all that is left in a multivariate logistic regression is the negative variation.
+
+It is also interesting to plot the Asian and Hispanic demographics against each other independently.
+
+
+```python
+fig, ax = plt.subplots(figsize=(10,10))
+ax = sns.regplot(X_i.percent_asian, y, logistic=True, label="% Asian")
+ax = sns.regplot(X_i.percent_hispanic, y, logistic=True, label="% Hispanic")
+ax.set_xlabel('Percent of school either Asian or Hispanic', fontsize=15)
+
+ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_lr_asian_hispanic.png" />
+
+The `percent_asian` has a steep curve, crossing the key .5 level at about 30%, while `percent_hispanic` starts at .5 and drops from there, suggesting that a school with *any* level of Hispanic population could benefit from PASSNYC's programs.
+
+Another interesting plot is the `economic_need_index` distribution, which certainly **looks** predictive, however its average coefficient is very low, only -.04 (compared to -.1 or lower for the more influential features).  Like the Hispanic/Latino Math and ELA scores, this suggests that the variation contained in this feature has a high level of overlap with another feature--the correlation work in the EDA section of this analysis suggests that is probably `percent_black__hispanic`.
+
+
+```python
+fig, ax = plt.subplots(figsize=(10,10))
+ax.set_title('Distribution for {}'.format('Economic Need Index'), fontsize=17)
+ax.hist(X_pos['economic_need_index'], bins=20, alpha=0.5, label="high registrants", density=True)
+ax.hist(X_neg['economic_need_index'], bins=20, alpha=0.5, label="low registrants", density=True)
+ax.legend()
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_hist_economic_need.png" />
+
+### Heatmap Analysis
+While it is useful to see which variables carry the most influence in aggregate, it can be puzzling to understand why some schools make the cut and some don't.  To see the variation on a per-school level, we can build a heatmap that contextualizes each school's data, and shows which variables pull the school in one direction or another in the eyes of the model.
+
+
+```python
+# Create columns in the predictions DataFrame to show the number of times the model voted each school a 1 or a zero
+predictions['1s'] = predictions.iloc[:,:50].sum(axis=1)
+predictions['0s'] = (predictions.iloc[:,:50]==0).sum(axis=1)
+# Add a column to show the true status of the school
+predictions['true'] = y
+# Add two more columns to show the average probability of each school being a 1 or a 0.  This gives us finer-grained visibility.
+predictions['1_prob'] = probs_1.mean(axis=1)
+predictions['0_prob'] = probs_0.mean(axis=1)
+# Sort table by the probability of school being predicted a 1
+predictions = predictions.sort_values(by='1_prob', ascending=False)
+```
+
+
+```python
+# Create a table of raw results, along with the number of votes each received and the true value
+X_predicted = pd.concat([X_i, predictions['1s'], predictions['0s'], predictions['true'], 
+                         predictions['1_prob']], axis=1, join_axes=[X_i.index])
+# Sort by the probability that each school got a 
+X_predicted = X_predicted.sort_values(by=['1_prob'], ascending=False)
+
+# Normalize the values of the data columns
+scaled_X_predicted = scaler.fit_transform(X_predicted)
+# Multiply the normalized value by the average coefficient to get a weighted influence score
+avg_coefs = np.array(coefs['avg'])
+weighted_values = np.multiply(scaled_X_predicted[:, :-4], avg_coefs)
+# Make a new copy of the results dataframe, and paste in the scaled values for the data columns
+X_result_weighted = X_predicted.copy()
+X_result_weighted.iloc[:, :-4] = weighted_values
+# Manually scale the vote columns to between -1.5 and 1.5 so they don't overweight the heatmap
+X_result_weighted.iloc[:, -4:-3] = predictions['1_prob']
+X_result_weighted.iloc[:, -3:-2] = predictions['0_prob']
+
+# Check the variation in every column, and drop the columns that don't show much effect on the result
+drop_cols = ['1_prob']
+for c in X_result_weighted.columns:
+    if X_result_weighted[c].max() - X_result_weighted[c].min() < .6:
+        drop_cols.append(c)
+X_result_weighted_trimmed = X_result_weighted.drop(drop_cols, axis=1)
+X_result_weighted_trimmed.head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>percent_asian</th>
+      <th>student_attendance_rate</th>
+      <th>percent_of_students_chronically_absent</th>
+      <th>strong_family_community_ties_percent</th>
+      <th>average_ela_proficiency</th>
+      <th>average_math_proficiency</th>
+      <th>grade_7_ela_4s_all_students</th>
+      <th>grade_7_ela_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_ela_4s_hispanic_or_latino</th>
+      <th>grade_7_ela_4s_asian_or_pacific_islander</th>
+      <th>grade_7_ela_4s_limited_english_proficient</th>
+      <th>grade_7_ela_4s_economically_disadvantaged</th>
+      <th>grade_7_math_4s_all_students</th>
+      <th>grade_7_math_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_math_4s_black_or_african_american</th>
+      <th>grade_7_math_4s_hispanic_or_latino</th>
+      <th>grade_7_math_4s_asian_or_pacific_islander</th>
+      <th>grade_7_math_4s_white</th>
+      <th>grade_7_math_4s_multiracial</th>
+      <th>grade_7_math_4s_economically_disadvantaged</th>
+      <th>in_queens</th>
+      <th>in_staten</th>
+      <th>number_of_classes_english</th>
+      <th>selective</th>
+      <th>1s</th>
+      <th>0s</th>
+      <th>true</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.909506</td>
+      <td>0.297259</td>
+      <td>0.365614</td>
+      <td>-0.120224</td>
+      <td>0.721274</td>
+      <td>0.842092</td>
+      <td>1.216053</td>
+      <td>0.005677</td>
+      <td>-0.142504</td>
+      <td>1.576786</td>
+      <td>-0.008106</td>
+      <td>0.581643</td>
+      <td>1.048096</td>
+      <td>0.009588</td>
+      <td>-0.039891</td>
+      <td>0.047442</td>
+      <td>1.253791</td>
+      <td>0.271732</td>
+      <td>-0.005174</td>
+      <td>0.662838</td>
+      <td>0.136264</td>
+      <td>0.029613</td>
+      <td>-0.052927</td>
+      <td>-0.632252</td>
+      <td>0.999715</td>
+      <td>0.000285</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>0.246215</td>
+      <td>0.171075</td>
+      <td>0.250052</td>
+      <td>-0.313898</td>
+      <td>0.519544</td>
+      <td>0.638044</td>
+      <td>1.285758</td>
+      <td>0.005677</td>
+      <td>0.622462</td>
+      <td>0.653615</td>
+      <td>-0.008106</td>
+      <td>0.607364</td>
+      <td>1.044391</td>
+      <td>0.009588</td>
+      <td>0.144833</td>
+      <td>-0.235178</td>
+      <td>0.540687</td>
+      <td>0.601090</td>
+      <td>-0.005174</td>
+      <td>0.650009</td>
+      <td>0.136264</td>
+      <td>0.029613</td>
+      <td>-0.170442</td>
+      <td>0.029971</td>
+      <td>0.999064</td>
+      <td>0.000936</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>0.546275</td>
+      <td>0.234167</td>
+      <td>0.269312</td>
+      <td>-0.313898</td>
+      <td>0.329021</td>
+      <td>0.407836</td>
+      <td>0.495763</td>
+      <td>0.005677</td>
+      <td>-0.142504</td>
+      <td>0.568726</td>
+      <td>1.245562</td>
+      <td>0.303865</td>
+      <td>0.714655</td>
+      <td>0.009588</td>
+      <td>-0.039891</td>
+      <td>0.047442</td>
+      <td>0.871771</td>
+      <td>0.179654</td>
+      <td>-0.005174</td>
+      <td>0.594417</td>
+      <td>0.136264</td>
+      <td>0.029613</td>
+      <td>-0.097695</td>
+      <td>0.029971</td>
+      <td>0.997205</td>
+      <td>0.002795</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>0.893713</td>
+      <td>0.234167</td>
+      <td>0.307833</td>
+      <td>-0.152503</td>
+      <td>0.312210</td>
+      <td>0.433996</td>
+      <td>0.460910</td>
+      <td>0.005677</td>
+      <td>0.287790</td>
+      <td>0.727893</td>
+      <td>1.245562</td>
+      <td>0.216416</td>
+      <td>0.518295</td>
+      <td>0.009588</td>
+      <td>0.218722</td>
+      <td>-0.109569</td>
+      <td>0.757165</td>
+      <td>0.027370</td>
+      <td>-0.005174</td>
+      <td>0.325009</td>
+      <td>-0.496003</td>
+      <td>0.029613</td>
+      <td>-0.100493</td>
+      <td>0.029971</td>
+      <td>0.995787</td>
+      <td>0.004213</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>0.214630</td>
+      <td>0.171075</td>
+      <td>0.211531</td>
+      <td>-0.217061</td>
+      <td>0.306606</td>
+      <td>0.386907</td>
+      <td>0.815246</td>
+      <td>0.005677</td>
+      <td>0.526842</td>
+      <td>0.452003</td>
+      <td>-0.008106</td>
+      <td>0.396458</td>
+      <td>0.896195</td>
+      <td>0.009588</td>
+      <td>1.179286</td>
+      <td>-0.235178</td>
+      <td>0.445182</td>
+      <td>0.441723</td>
+      <td>-0.005174</td>
+      <td>0.577312</td>
+      <td>0.136264</td>
+      <td>0.029613</td>
+      <td>-0.299149</td>
+      <td>0.029971</td>
+      <td>0.994976</td>
+      <td>0.005024</td>
+      <td>1.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+While the data for each school is clear enough to understand, it can be difficult to place each datapoint in context in the greater scheme of things.  Is that number a lot, or a little?  To aid in visualizing this, we constructed a heatmap that colors each datapoint according to the degree of influence it has in determining the model's final evaluation.
+
+For this heatmap, the numbers in each cell are the raw data, but the coloration comes from the weighted and trimmed data generated above.  Each datapoint is normalized so they are all in the same basic range, and then they are multiplied by their average coefficient - effectively weighting them according to their influence in the model.  Columns in which there is very little variation are dropped for the sake of simplification, and everything is laid out in order of the likelihood that each school will be predicted to be a high-registration school.
+
+Looking across the row for each school, you can see which columns pulled that school towards a `1` prediction by the degree to which the color is yellow, while columns colored blue to black pull the school towards a 0.  Looking down the columns, you can see some that are reliable predictors, and others that are more sporadic but hit with larger influence.
+
+
+```python
+# Plot the results
+fig, ax = plt.subplots(figsize=(18,200))
+fig.patch.set_facecolor('white')
+im = ax.imshow(X_result_weighted_trimmed, cmap='viridis')
+ax.xaxis.tick_top()
+ax.set_xticks(np.arange(len(X_result_weighted_trimmed.columns)))
+ax.set_yticks(np.arange(len(X_result_weighted_trimmed.index)))
+ax.set_xticklabels(X_result_weighted_trimmed.columns)
+labels = X_orig.loc[:,'school_name'].reindex(X_result_weighted_trimmed.index)
+ax.set_yticklabels(labels)
+plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
+
+for i in range(len(X_result_weighted_trimmed.index)):
+    for j in range(len(X_result_weighted_trimmed.columns[1:])+1):
+        text = ax.text(j, i, "{:n}".format(round(X_predicted.loc[X_result_weighted_trimmed.index[i], X_result_weighted_trimmed.columns[j]], 0)),
+                       ha="center", va="center", color="w")
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_heatmap_full.png" />
+
+### False Positives
+While the full dataset is useful, it is also very large, and it can be useful to examine the instances in which the model gets things wrong.  Particularly the false positives, which the model thinks **should** be high-registering, but for some reason are not.  These are likely to be the most fruitful schools for PASSNYC to consider in its evaluations of candidates.  For this list, the threshhold to be considered a false positive is more than 5 predictions of a `1` for the school in the Repeated Stratified K Fold validation.
+
+
+```python
+# Filter the predictions to just the low-registrants
+false_positives = predictions[predictions['true']==0]
+# Filter to just those schools that received more than 5 positive predictions, and trim to just this column
+false_positives = false_positives[false_positives['1s'] > 5]['1s']
+# Combine this result with the full dataset
+fp_result = pd.concat([false_positives, X_i], axis=1, join='inner')
+
+# As before, normalize the data and multiply it by the average coefficient
+scaled_fp_X = scaler.fit_transform(fp_result.iloc[:,1:])
+avg_coefs = np.array(coefs['avg'])
+weighted_values = np.multiply(scaled_fp_X, avg_coefs)
+# Make a copy of the dataframe, and replace the data columns with the scaled, weighted values
+fp_result_weighted = fp_result.copy()
+fp_result_weighted.iloc[:, 1:] = weighted_values
+# Drop the columns that don't have any evidence of influential values
+drop_cols = []
+for c in fp_result_weighted.columns:
+    if fp_result_weighted[c].max() - fp_result_weighted[c].min() < .5:
+        drop_cols.append(c)
+fp_result_weighted_trimmed = fp_result_weighted.drop(drop_cols, axis=1)
+fp_result_weighted_trimmed.head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>1s</th>
+      <th>percent_asian</th>
+      <th>student_attendance_rate</th>
+      <th>percent_of_students_chronically_absent</th>
+      <th>strong_family_community_ties_percent</th>
+      <th>average_ela_proficiency</th>
+      <th>average_math_proficiency</th>
+      <th>grade_7_ela_4s_all_students</th>
+      <th>grade_7_ela_4s_hispanic_or_latino</th>
+      <th>grade_7_ela_4s_asian_or_pacific_islander</th>
+      <th>grade_7_math_4s_all_students</th>
+      <th>grade_7_math_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_math_4s_asian_or_pacific_islander</th>
+      <th>in_bronx</th>
+      <th>in_queens</th>
+      <th>in_staten</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>40</th>
+      <td>10.0</td>
+      <td>0.296573</td>
+      <td>-0.084709</td>
+      <td>-0.074015</td>
+      <td>-0.339228</td>
+      <td>-0.349057</td>
+      <td>-0.253651</td>
+      <td>-0.043763</td>
+      <td>0.145908</td>
+      <td>0.028280</td>
+      <td>0.219142</td>
+      <td>0.017318</td>
+      <td>0.411689</td>
+      <td>-0.036992</td>
+      <td>0.197812</td>
+      <td>0.0433</td>
+    </tr>
+    <tr>
+      <th>39</th>
+      <td>10.0</td>
+      <td>-0.059824</td>
+      <td>0.136272</td>
+      <td>0.172701</td>
+      <td>-0.014435</td>
+      <td>0.480899</td>
+      <td>0.557201</td>
+      <td>0.609983</td>
+      <td>-0.229284</td>
+      <td>0.260579</td>
+      <td>0.313228</td>
+      <td>0.017318</td>
+      <td>0.101371</td>
+      <td>-0.036992</td>
+      <td>-0.341675</td>
+      <td>0.0433</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>10.0</td>
+      <td>0.296573</td>
+      <td>0.246762</td>
+      <td>0.313681</td>
+      <td>-0.258030</td>
+      <td>0.617063</td>
+      <td>0.728728</td>
+      <td>0.199366</td>
+      <td>0.020844</td>
+      <td>0.331279</td>
+      <td>0.117215</td>
+      <td>0.017318</td>
+      <td>0.182053</td>
+      <td>-0.036992</td>
+      <td>-0.341675</td>
+      <td>0.0433</td>
+    </tr>
+    <tr>
+      <th>52</th>
+      <td>10.0</td>
+      <td>0.360215</td>
+      <td>-0.305690</td>
+      <td>-0.496956</td>
+      <td>-0.149766</td>
+      <td>-0.180472</td>
+      <td>-0.253651</td>
+      <td>0.269603</td>
+      <td>0.521100</td>
+      <td>0.472679</td>
+      <td>0.219142</td>
+      <td>-0.502216</td>
+      <td>0.312387</td>
+      <td>-0.036992</td>
+      <td>-0.341675</td>
+      <td>0.0433</td>
+    </tr>
+    <tr>
+      <th>45</th>
+      <td>10.0</td>
+      <td>0.143831</td>
+      <td>0.025781</td>
+      <td>0.066966</td>
+      <td>-0.149766</td>
+      <td>-0.109148</td>
+      <td>-0.011955</td>
+      <td>0.145337</td>
+      <td>0.646164</td>
+      <td>0.230279</td>
+      <td>0.254424</td>
+      <td>0.017318</td>
+      <td>0.306181</td>
+      <td>-0.036992</td>
+      <td>-0.341675</td>
+      <td>0.0433</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+# Plot the False Positives heatmap
+fig, ax = plt.subplots(figsize=(18,20))
+im = ax.imshow(fp_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
+ax.xaxis.tick_top()
+ax.set_xticks(np.arange(len(fp_result_weighted_trimmed.columns[1:])))
+ax.set_yticks(np.arange(len(fp_result_weighted_trimmed.index)))
+ax.set_xticklabels(fp_result_weighted_trimmed.columns[1:])
+labels = X_orig.loc[:,'school_name'].reindex(fp_result_weighted_trimmed.index)
+ax.set_yticklabels(labels)
+plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
+
+for i in range(len(fp_result_weighted_trimmed.index)):
+    for j in range(len(fp_result_weighted_trimmed.columns[1:])):
+        text = ax.text(j, i, round(fp_result.loc[fp_result_weighted_trimmed.index[i], fp_result_weighted_trimmed.columns[j+1]], 1),
+                       ha="center", va="center", color="w")
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_heatmap_false_positives.png" />
+
+While none of these schools surpassed 38% in their SHSAT registrations, the logistic regression model predicted that they would fairly reliably.  For some of them, it appears simply having a relatively high asian population was enough to persuade the model, whicle others had high enough academic scores that it seems unusual they didn't also have a lot of test-takers.  Some of them are quite puzzling - PS 99 Isaac Asimov, for example.  It is not clear why the model should think this school should have high registrations with its abysmal absenteeism, but the nuances of the model's predictions are not always clear.
+
+### False Negatives
+Just as it can be helpful to see where the model went wrong in predicting high-registration schools, it can be instructive to see the schools that it thinks are low-registering, but are not.
+
+
+```python
+# Filter the predictions to just the high-registrants
+false_negatives = predictions[predictions['true']==1]
+# Filter to just those schools that received more than 5 negative predictions, and trim to just this column
+false_negatives = false_negatives[false_negatives['0s'] > 5]['0s']
+# Combine this result with the full dataset
+fn_result = pd.concat([false_negatives, X_i], axis=1, join='inner')
+
+# As before, normalize the data and multiply it by the average coefficient
+scaled_fn_X = scaler.fit_transform(fn_result.iloc[:,1:])
+weighted_values = np.multiply(scaled_fn_X, avg_coefs)
+# Make a copy of the dataframe, and replace the data columns with the scaled, weighted values
+fn_result_weighted = fn_result.copy()
+fn_result_weighted.iloc[:, 1:] = weighted_values
+# Drop the columns that don't have any evidence of influential values
+drop_cols = []
+for c in fn_result_weighted.columns:
+    if fn_result_weighted[c].max() - fn_result_weighted[c].min() < .5:
+        drop_cols.append(c)
+fn_result_weighted_trimmed = fn_result_weighted.drop(drop_cols, axis=1)
+fn_result_weighted_trimmed.head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>0s</th>
+      <th>percent_asian</th>
+      <th>student_attendance_rate</th>
+      <th>percent_of_students_chronically_absent</th>
+      <th>strong_family_community_ties_percent</th>
+      <th>average_ela_proficiency</th>
+      <th>average_math_proficiency</th>
+      <th>grade_7_ela_4s_all_students</th>
+      <th>grade_7_ela_4s_hispanic_or_latino</th>
+      <th>grade_7_ela_4s_asian_or_pacific_islander</th>
+      <th>grade_7_math_4s_all_students</th>
+      <th>grade_7_math_4s_american_indian_or_alaska_native</th>
+      <th>grade_7_math_4s_asian_or_pacific_islander</th>
+      <th>in_queens</th>
+      <th>in_staten</th>
+      <th>gifted</th>
+      <th>selective</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>106</th>
+      <td>6</td>
+      <td>-0.168302</td>
+      <td>0.066931</td>
+      <td>-0.010950</td>
+      <td>-0.142200</td>
+      <td>0.110286</td>
+      <td>-0.114325</td>
+      <td>0.154571</td>
+      <td>0.524657</td>
+      <td>0.019355</td>
+      <td>0.004178</td>
+      <td>0.015994</td>
+      <td>-0.040935</td>
+      <td>0.118252</td>
+      <td>0.039885</td>
+      <td>-0.018498</td>
+      <td>0.033889</td>
+    </tr>
+    <tr>
+      <th>55</th>
+      <td>6</td>
+      <td>0.598956</td>
+      <td>0.066931</td>
+      <td>0.180682</td>
+      <td>-0.050879</td>
+      <td>0.269312</td>
+      <td>0.262908</td>
+      <td>0.252268</td>
+      <td>-0.209863</td>
+      <td>0.447198</td>
+      <td>0.219669</td>
+      <td>0.015994</td>
+      <td>0.469020</td>
+      <td>-0.571553</td>
+      <td>0.039885</td>
+      <td>-0.018498</td>
+      <td>0.033889</td>
+    </tr>
+    <tr>
+      <th>352</th>
+      <td>6</td>
+      <td>-0.143551</td>
+      <td>0.066931</td>
+      <td>0.180682</td>
+      <td>0.086103</td>
+      <td>0.081372</td>
+      <td>0.141655</td>
+      <td>-0.016399</td>
+      <td>-0.209863</td>
+      <td>-0.087606</td>
+      <td>0.019570</td>
+      <td>0.015994</td>
+      <td>-0.089502</td>
+      <td>0.118252</td>
+      <td>0.039885</td>
+      <td>-0.018498</td>
+      <td>0.033889</td>
+    </tr>
+    <tr>
+      <th>74</th>
+      <td>6</td>
+      <td>0.326703</td>
+      <td>0.157030</td>
+      <td>0.235434</td>
+      <td>0.086103</td>
+      <td>0.160885</td>
+      <td>0.161864</td>
+      <td>0.093510</td>
+      <td>0.016143</td>
+      <td>0.197623</td>
+      <td>-0.049695</td>
+      <td>0.015994</td>
+      <td>0.031916</td>
+      <td>0.118252</td>
+      <td>0.039885</td>
+      <td>-0.018498</td>
+      <td>0.033889</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>7</td>
+      <td>0.128701</td>
+      <td>0.337229</td>
+      <td>0.372315</td>
+      <td>0.040442</td>
+      <td>0.695791</td>
+      <td>0.788340</td>
+      <td>0.801814</td>
+      <td>0.242149</td>
+      <td>0.482852</td>
+      <td>0.766094</td>
+      <td>-0.543790</td>
+      <td>0.469020</td>
+      <td>0.118252</td>
+      <td>0.039885</td>
+      <td>-0.018498</td>
+      <td>-0.559165</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+fig, ax = plt.subplots(figsize=(18,20))
+im = ax.imshow(fn_result_weighted_trimmed.iloc[:,1:], cmap='viridis')
+ax.xaxis.tick_top()
+ax.set_xticks(np.arange(len(fn_result_weighted_trimmed.columns[1:])))
+ax.set_yticks(np.arange(len(fn_result_weighted_trimmed.index)))
+ax.set_xticklabels(fn_result_weighted_trimmed.columns[1:])
+labels = X_orig.loc[:,'school_name'].reindex(fn_result_weighted_trimmed.index)
+ax.set_yticklabels(labels)
+#ax.set_yticklabels(fn_result_weighted_trimmed.index)
+plt.setp(ax.get_xticklabels(), rotation=90, ha="left", va="center", rotation_mode="anchor")
+
+for i in range(len(fn_result_weighted_trimmed.index)):
+    for j in range(len(fn_result_weighted_trimmed.columns[1:])):
+        text = ax.text(j, i, round(fn_result.loc[fn_result_weighted_trimmed.index[i], fn_result_weighted_trimmed.columns[j+1]], 1),
+                       ha="center", va="center", color="w")
+#plt.show()
+plt.close()
+```
+
+<img src="plots/logreg_heatmap_false_negatives.png" />
+
+As before, there some standouts that can cause head-scratching.  East Side Middle School, for example, has all the hallmarks of a high-registering school with its stellar academic scores (and, remember, it is).  However it appears the combination of a handful of high-performing Native Americans and the fact that it is a selective school were enough to relegate it to low-registration, at least most of the time.  Meanwhile, there is nothing in the Urban Assembly Unison School's numbers to explain why it is, in fact, a high-registration school, except maybe its `strong_family_community_ties_percent` score.  But perhaps there is a force within the school that compels students to take the test that is not reflected in the data--a zealous teacher or administrator or parent group, perhaps.  It might be useful for PASSNYC to talk to some of these schools, to see how it is that they manage a high registration rate in apparent contravention of the data.  They might have some useful wisdom to impart.
+
+## Final ranking for PASSNYC
+In accordance with the other models in this analysis, we undertake a final evaluation of the schools to determine which have the highest opportunity for engagement with a black and/or hispanic population, and which the model considers to have the highest potential to be high-registration schools.  We write the results to a CSV file for final assembly and reporting.
+
+
+```python
+# Just the columns of interest
+final_features = ['dbn',
+              'school_name',
+              'grade_7_enrollment',
+              'num_shsat_test_takers']
+# Convert the percent columns to proper floats
+pct_features = ['pct_test_takers',
+               'percent_black__hispanic']
+df_pct = np.multiply(X_orig[pct_features], .01)
+
+# Merge these columns to one DataFrame, along with number of 1 predictions and the true value
+df_final = pd.concat([X_orig[final_features], df_pct, predictions['1s'], predictions['true']], axis=1)
+
+# Determine the number of test takers this school would have needed to meet the median percentage of high_registrations
+median_pct = np.median(X_orig[y==1]['pct_test_takers'])/100
+predicted_test_takers = np.multiply(df_final['grade_7_enrollment'], median_pct)
+
+# Subtract the number of actual test takers from the hypothetical median number
+delta = predicted_test_takers - df_final['num_shsat_test_takers']
+
+# Multiply the delta by the minority percentage of the school to estimate how many minority students did not take the test
+df_final['minority_delta'] = np.round(np.multiply(delta, df_final['percent_black__hispanic']), 0)
+
+# Multiply the minority delta by the percentage of 1 votes to get a confidence-adjusted 'score', and sort by this.
+df_final['score'] = np.multiply(df_final['minority_delta'], df_final['1s']/10)
+df_final = df_final.sort_values(by='score', ascending=False)
+
+# Create a rank order column
+df_final.insert(0, 'rank', range(1,df_final.shape[0]+1))
+
+# Write to CSV
+df_final.to_csv('results/results.logreg.csv')
+df_final
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>rank</th>
+      <th>dbn</th>
+      <th>school_name</th>
+      <th>grade_7_enrollment</th>
+      <th>num_shsat_test_takers</th>
+      <th>pct_test_takers</th>
+      <th>percent_black__hispanic</th>
+      <th>1s</th>
+      <th>true</th>
+      <th>minority_delta</th>
+      <th>score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>108</th>
+      <td>1</td>
+      <td>30Q145</td>
+      <td>I.S. 145 JOSEPH PULITZER</td>
+      <td>582.0</td>
+      <td>137.0</td>
+      <td>0.23</td>
+      <td>0.90</td>
+      <td>5.0</td>
+      <td>0.0</td>
+      <td>144.0</td>
+      <td>72.0</td>
+    </tr>
+    <tr>
+      <th>107</th>
+      <td>2</td>
+      <td>22K278</td>
+      <td>J.H.S. 278 MARINE PARK</td>
+      <td>428.0</td>
+      <td>98.0</td>
+      <td>0.33</td>
+      <td>0.63</td>
+      <td>8.0</td>
+      <td>0.0</td>
+      <td>76.0</td>
+      <td>60.8</td>
+    </tr>
+    <tr>
+      <th>56</th>
+      <td>3</td>
+      <td>27Q210</td>
+      <td>J.H.S. 210 ELIZABETH BLACKWELL</td>
+      <td>643.0</td>
+      <td>169.0</td>
+      <td>0.26</td>
+      <td>0.67</td>
+      <td>5.0</td>
+      <td>0.0</td>
+      <td>106.0</td>
+      <td>53.0</td>
+    </tr>
+    <tr>
+      <th>52</th>
+      <td>4</td>
+      <td>27Q137</td>
+      <td>M.S. 137 AMERICA'S SCHOOL OF HEROES</td>
+      <td>617.0</td>
+      <td>179.0</td>
+      <td>0.27</td>
+      <td>0.37</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>50.0</td>
+      <td>50.0</td>
+    </tr>
+    <tr>
+      <th>45</th>
+      <td>5</td>
+      <td>30Q230</td>
+      <td>I.S. 230</td>
+      <td>439.0</td>
+      <td>157.0</td>
+      <td>0.36</td>
+      <td>0.57</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>38.0</td>
+      <td>38.0</td>
+    </tr>
+    <tr>
+      <th>59</th>
+      <td>6</td>
+      <td>15K088</td>
+      <td>J.H.S. 088 PETER ROUGET</td>
+      <td>466.0</td>
+      <td>163.0</td>
+      <td>0.39</td>
+      <td>0.71</td>
+      <td>7.0</td>
+      <td>1.0</td>
+      <td>53.0</td>
+      <td>37.1</td>
+    </tr>
+    <tr>
+      <th>31</th>
+      <td>7</td>
+      <td>24Q005</td>
+      <td>I.S. 5 - THE WALTER CROWLEY INTERMEDIATE SCHOOL</td>
+      <td>614.0</td>
+      <td>264.0</td>
+      <td>0.41</td>
+      <td>0.54</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>27.0</td>
+      <td>27.0</td>
+    </tr>
+    <tr>
+      <th>40</th>
+      <td>8</td>
+      <td>20K220</td>
+      <td>J.H.S. 220 JOHN J. PERSHING</td>
+      <td>473.0</td>
+      <td>181.0</td>
+      <td>0.34</td>
+      <td>0.45</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>27.0</td>
+      <td>27.0</td>
+    </tr>
+    <tr>
+      <th>460</th>
+      <td>9</td>
+      <td>20K062</td>
+      <td>J.H.S. 062 DITMAS</td>
+      <td>434.0</td>
+      <td>104.0</td>
+      <td>0.26</td>
+      <td>0.55</td>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>65.0</td>
+      <td>26.0</td>
+    </tr>
+    <tr>
+      <th>35</th>
+      <td>10</td>
+      <td>21K281</td>
+      <td>I.S. 281 JOSEPH B CAVALLARO</td>
+      <td>492.0</td>
+      <td>171.0</td>
+      <td>0.42</td>
+      <td>0.29</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>23.0</td>
+      <td>23.0</td>
+    </tr>
+    <tr>
+      <th>41</th>
+      <td>11</td>
+      <td>30Q227</td>
+      <td>I.S. 227 LOUIS ARMSTRONG</td>
+      <td>472.0</td>
+      <td>206.0</td>
+      <td>0.44</td>
+      <td>0.59</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>20.0</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>12</td>
+      <td>25Q194</td>
+      <td>J.H.S. 194 WILLIAM CARR</td>
+      <td>416.0</td>
+      <td>147.0</td>
+      <td>0.37</td>
+      <td>0.31</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>20.0</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>77</th>
+      <td>13</td>
+      <td>11X083</td>
+      <td>P.S. 083 DONALD HERTZ</td>
+      <td>220.0</td>
+      <td>77.0</td>
+      <td>0.33</td>
+      <td>0.58</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>20.0</td>
+      <td>20.0</td>
+    </tr>
+    <tr>
+      <th>443</th>
+      <td>14</td>
+      <td>15K821</td>
+      <td>SUNSET PARK PREP</td>
+      <td>165.0</td>
+      <td>53.0</td>
+      <td>0.32</td>
+      <td>0.76</td>
+      <td>8.0</td>
+      <td>0.0</td>
+      <td>24.0</td>
+      <td>19.2</td>
+    </tr>
+    <tr>
+      <th>432</th>
+      <td>15</td>
+      <td>22K207</td>
+      <td>P.S. 207 ELIZABETH G. LEARY</td>
+      <td>162.0</td>
+      <td>43.0</td>
+      <td>0.30</td>
+      <td>0.49</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>19.0</td>
+      <td>19.0</td>
+    </tr>
+    <tr>
+      <th>69</th>
+      <td>16</td>
+      <td>21K228</td>
+      <td>I.S. 228 DAVID A. BOODY</td>
+      <td>417.0</td>
+      <td>160.0</td>
+      <td>0.38</td>
+      <td>0.34</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>18.0</td>
+      <td>18.0</td>
+    </tr>
+    <tr>
+      <th>278</th>
+      <td>17</td>
+      <td>17K590</td>
+      <td>MEDGAR EVERS COLLEGE PREPARATORY SCHOOL</td>
+      <td>116.0</td>
+      <td>15.0</td>
+      <td>0.04</td>
+      <td>0.93</td>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>41.0</td>
+      <td>16.4</td>
+    </tr>
+    <tr>
+      <th>103</th>
+      <td>18</td>
+      <td>08X101</td>
+      <td>M.S. X101 EDWARD R. BYRNE</td>
+      <td>176.0</td>
+      <td>66.0</td>
+      <td>0.44</td>
+      <td>0.66</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>16.0</td>
+      <td>16.0</td>
+    </tr>
+    <tr>
+      <th>24</th>
+      <td>19</td>
+      <td>25Q237</td>
+      <td>I.S. 237</td>
+      <td>508.0</td>
+      <td>194.0</td>
+      <td>0.45</td>
+      <td>0.25</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>16.0</td>
+      <td>16.0</td>
+    </tr>
+    <tr>
+      <th>47</th>
+      <td>20</td>
+      <td>20K227</td>
+      <td>J.H.S. 227 EDWARD B. SHALLOW</td>
+      <td>496.0</td>
+      <td>197.0</td>
+      <td>0.42</td>
+      <td>0.25</td>
+      <td>9.0</td>
+      <td>1.0</td>
+      <td>14.0</td>
+      <td>12.6</td>
+    </tr>
+    <tr>
+      <th>46</th>
+      <td>21</td>
+      <td>30Q141</td>
+      <td>I.S. 141 THE STEINWAY</td>
+      <td>380.0</td>
+      <td>170.0</td>
+      <td>0.48</td>
+      <td>0.41</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>10.0</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>63</th>
+      <td>22</td>
+      <td>20K223</td>
+      <td>J.H.S. 223 THE MONTAUK</td>
+      <td>341.0</td>
+      <td>142.0</td>
+      <td>0.43</td>
+      <td>0.31</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>10.0</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>376</th>
+      <td>23</td>
+      <td>29Q208</td>
+      <td>P.S./I.S. 208</td>
+      <td>92.0</td>
+      <td>28.0</td>
+      <td>0.27</td>
+      <td>0.87</td>
+      <td>6.0</td>
+      <td>0.0</td>
+      <td>16.0</td>
+      <td>9.6</td>
+    </tr>
+    <tr>
+      <th>30</th>
+      <td>24</td>
+      <td>31R075</td>
+      <td>I.S. 075 FRANK D. PAULO</td>
+      <td>463.0</td>
+      <td>153.0</td>
+      <td>0.35</td>
+      <td>0.11</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>9.0</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>33</th>
+      <td>25</td>
+      <td>24Q125</td>
+      <td>I.S. 125 THOM J. MCCANN WOODSIDE</td>
+      <td>567.0</td>
+      <td>272.0</td>
+      <td>0.50</td>
+      <td>0.54</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>9.0</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>325</th>
+      <td>26</td>
+      <td>17K543</td>
+      <td>SCIENCE, TECHNOLOGY AND RESEARCH EARLY COLLEGE...</td>
+      <td>64.0</td>
+      <td>20.0</td>
+      <td>0.12</td>
+      <td>0.94</td>
+      <td>7.0</td>
+      <td>0.0</td>
+      <td>12.0</td>
+      <td>8.4</td>
+    </tr>
+    <tr>
+      <th>439</th>
+      <td>27</td>
+      <td>17K189</td>
+      <td>P.S. 189 THE BILINGUAL CENTER</td>
+      <td>150.0</td>
+      <td>49.0</td>
+      <td>0.41</td>
+      <td>0.97</td>
+      <td>3.0</td>
+      <td>1.0</td>
+      <td>27.0</td>
+      <td>8.1</td>
+    </tr>
+    <tr>
+      <th>68</th>
+      <td>28</td>
+      <td>25Q189</td>
+      <td>J.H.S. 189 DANIEL CARTER BEARD</td>
+      <td>248.0</td>
+      <td>97.0</td>
+      <td>0.39</td>
+      <td>0.28</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>8.0</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>73</th>
+      <td>29</td>
+      <td>24Q049</td>
+      <td>P.S. 049 DOROTHY BONAWIT KOLE</td>
+      <td>142.0</td>
+      <td>43.0</td>
+      <td>0.32</td>
+      <td>0.26</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>344</th>
+      <td>30</td>
+      <td>32K554</td>
+      <td>ALL CITY LEADERSHIP SECONDARY SCHOOL</td>
+      <td>61.0</td>
+      <td>22.0</td>
+      <td>0.17</td>
+      <td>0.89</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>95</th>
+      <td>31</td>
+      <td>11X194</td>
+      <td>P.S./M.S. 194</td>
+      <td>167.0</td>
+      <td>64.0</td>
+      <td>0.39</td>
+      <td>0.61</td>
+      <td>6.0</td>
+      <td>1.0</td>
+      <td>13.0</td>
+      <td>7.8</td>
+    </tr>
+    <tr>
+      <th>26</th>
+      <td>32</td>
+      <td>28Q157</td>
+      <td>J.H.S. 157 STEPHEN A. HALSEY</td>
+      <td>528.0</td>
+      <td>249.0</td>
+      <td>0.43</td>
+      <td>0.33</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>7.0</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>102</th>
+      <td>33</td>
+      <td>02M131</td>
+      <td>M.S. 131</td>
+      <td>165.0</td>
+      <td>54.0</td>
+      <td>0.38</td>
+      <td>0.22</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>7.0</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>36</th>
+      <td>34</td>
+      <td>25Q025</td>
+      <td>I.S. 025 ADRIEN BLOCK</td>
+      <td>346.0</td>
+      <td>147.0</td>
+      <td>0.44</td>
+      <td>0.25</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>7.0</td>
+      <td>7.0</td>
+    </tr>
+    <tr>
+      <th>49</th>
+      <td>35</td>
+      <td>05M362</td>
+      <td>COLUMBIA SECONDARY SCHOOL</td>
+      <td>99.0</td>
+      <td>42.0</td>
+      <td>0.20</td>
+      <td>0.65</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>247</th>
+      <td>36</td>
+      <td>21K095</td>
+      <td>P.S. 095 THE GRAVESEND</td>
+      <td>49.0</td>
+      <td>12.0</td>
+      <td>0.25</td>
+      <td>0.48</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>6.0</td>
+    </tr>
+    <tr>
+      <th>97</th>
+      <td>37</td>
+      <td>31R034</td>
+      <td>I.S. 034 TOTTENVILLE</td>
+      <td>348.0</td>
+      <td>81.0</td>
+      <td>0.21</td>
+      <td>0.11</td>
+      <td>5.0</td>
+      <td>0.0</td>
+      <td>11.0</td>
+      <td>5.5</td>
+    </tr>
+    <tr>
+      <th>416</th>
+      <td>38</td>
+      <td>08X337</td>
+      <td>THE SCHOOL FOR INQUIRY AND SOCIAL JUSTICE</td>
+      <td>181.0</td>
+      <td>39.0</td>
+      <td>0.24</td>
+      <td>0.96</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>51.0</td>
+      <td>5.1</td>
+    </tr>
+    <tr>
+      <th>266</th>
+      <td>39</td>
+      <td>11X175</td>
+      <td>P.S. 175 CITY ISLAND</td>
+      <td>51.0</td>
+      <td>14.0</td>
+      <td>0.31</td>
+      <td>0.38</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>39</th>
+      <td>40</td>
+      <td>27Q323</td>
+      <td>SCHOLARS' ACADEMY</td>
+      <td>231.0</td>
+      <td>104.0</td>
+      <td>0.24</td>
+      <td>0.37</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>300</th>
+      <td>41</td>
+      <td>21K099</td>
+      <td>P.S. 099 ISAAC ASIMOV</td>
+      <td>70.0</td>
+      <td>17.0</td>
+      <td>0.16</td>
+      <td>0.26</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>272</th>
+      <td>42</td>
+      <td>03M333</td>
+      <td>P.S. 333 MANHATTAN SCHOOL FOR CHILDREN</td>
+      <td>63.0</td>
+      <td>15.0</td>
+      <td>0.30</td>
+      <td>0.27</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>462</th>
+      <td>43</td>
+      <td>11X180</td>
+      <td>M.S. 180 DR. DANIEL HALE WILLIAMS</td>
+      <td>307.0</td>
+      <td>151.0</td>
+      <td>0.49</td>
+      <td>0.92</td>
+      <td>9.0</td>
+      <td>1.0</td>
+      <td>5.0</td>
+      <td>4.5</td>
+    </tr>
+    <tr>
+      <th>99</th>
+      <td>44</td>
+      <td>25Q219</td>
+      <td>P.S. 219 PAUL KLAPPER</td>
+      <td>83.0</td>
+      <td>29.0</td>
+      <td>0.38</td>
+      <td>0.40</td>
+      <td>6.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>364</th>
+      <td>45</td>
+      <td>13K492</td>
+      <td>ACADEMY OF ARTS AND LETTERS</td>
+      <td>63.0</td>
+      <td>26.0</td>
+      <td>0.44</td>
+      <td>0.57</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>3.0</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>70</th>
+      <td>46</td>
+      <td>02M413</td>
+      <td>SCHOOL OF THE FUTURE HIGH SCHOOL</td>
+      <td>105.0</td>
+      <td>46.0</td>
+      <td>0.21</td>
+      <td>0.40</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>47</td>
+      <td>20K259</td>
+      <td>J.H.S. 259 WILLIAM MCKINLEY</td>
+      <td>630.0</td>
+      <td>309.0</td>
+      <td>0.53</td>
+      <td>0.23</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>3.0</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>54</th>
+      <td>48</td>
+      <td>31R007</td>
+      <td>I.S. 007 ELIAS BERNSTEIN</td>
+      <td>370.0</td>
+      <td>129.0</td>
+      <td>0.32</td>
+      <td>0.07</td>
+      <td>7.0</td>
+      <td>0.0</td>
+      <td>4.0</td>
+      <td>2.8</td>
+    </tr>
+    <tr>
+      <th>112</th>
+      <td>49</td>
+      <td>20K030</td>
+      <td>P.S./I.S. 30 MARY WHITE OVINGTON</td>
+      <td>125.0</td>
+      <td>51.0</td>
+      <td>0.41</td>
+      <td>0.31</td>
+      <td>7.0</td>
+      <td>1.0</td>
+      <td>4.0</td>
+      <td>2.8</td>
+    </tr>
+    <tr>
+      <th>44</th>
+      <td>50</td>
+      <td>31R072</td>
+      <td>I.S. 072 ROCCO LAURIE</td>
+      <td>448.0</td>
+      <td>139.0</td>
+      <td>0.30</td>
+      <td>0.29</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>26.0</td>
+      <td>2.6</td>
+    </tr>
+    <tr>
+      <th>436</th>
+      <td>51</td>
+      <td>23K392</td>
+      <td>I.S. 392</td>
+      <td>98.0</td>
+      <td>46.0</td>
+      <td>0.48</td>
+      <td>0.91</td>
+      <td>6.0</td>
+      <td>1.0</td>
+      <td>4.0</td>
+      <td>2.4</td>
+    </tr>
+    <tr>
+      <th>86</th>
+      <td>52</td>
+      <td>22K206</td>
+      <td>P.S. 206 JOSEPH F LAMB</td>
+      <td>126.0</td>
+      <td>51.0</td>
+      <td>0.43</td>
+      <td>0.13</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>62</th>
+      <td>53</td>
+      <td>15K443</td>
+      <td>NEW VOICES SCHOOL OF ACADEMIC &amp; CREATIVE ARTS</td>
+      <td>191.0</td>
+      <td>94.0</td>
+      <td>0.50</td>
+      <td>0.48</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>67</th>
+      <td>54</td>
+      <td>24Q102</td>
+      <td>P.S. 102 BAYVIEW</td>
+      <td>143.0</td>
+      <td>67.0</td>
+      <td>0.46</td>
+      <td>0.36</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>94</th>
+      <td>55</td>
+      <td>13K008</td>
+      <td>P.S. 008 ROBERT FULTON</td>
+      <td>97.0</td>
+      <td>42.0</td>
+      <td>0.65</td>
+      <td>0.25</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>158</th>
+      <td>56</td>
+      <td>02M217</td>
+      <td>P.S./I.S. 217 ROOSEVELT ISLAND</td>
+      <td>22.0</td>
+      <td>6.0</td>
+      <td>0.28</td>
+      <td>0.30</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>101</th>
+      <td>57</td>
+      <td>21K226</td>
+      <td>P.S. 226 ALFRED DE B.MASON</td>
+      <td>105.0</td>
+      <td>44.0</td>
+      <td>0.44</td>
+      <td>0.33</td>
+      <td>6.0</td>
+      <td>1.0</td>
+      <td>3.0</td>
+      <td>1.8</td>
+    </tr>
+    <tr>
+      <th>409</th>
+      <td>58</td>
+      <td>18K066</td>
+      <td>P.S. 66</td>
+      <td>107.0</td>
+      <td>37.0</td>
+      <td>0.36</td>
+      <td>0.95</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>17.0</td>
+      <td>1.7</td>
+    </tr>
+    <tr>
+      <th>199</th>
+      <td>59</td>
+      <td>02M408</td>
+      <td>PROFESSIONAL PERFORMING ARTS HIGH SCHOOL</td>
+      <td>31.0</td>
+      <td>9.0</td>
+      <td>0.07</td>
+      <td>0.43</td>
+      <td>5.0</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>1.5</td>
+    </tr>
+    <tr>
+      <th>66</th>
+      <td>60</td>
+      <td>02M260</td>
+      <td>M.S. 260 CLINTON SCHOOL WRITERS &amp; ARTISTS</td>
+      <td>99.0</td>
+      <td>36.0</td>
+      <td>0.16</td>
+      <td>0.16</td>
+      <td>7.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>1.4</td>
+    </tr>
+    <tr>
+      <th>81</th>
+      <td>61</td>
+      <td>31R024</td>
+      <td>I.S. 024 MYRA S. BARNES</td>
+      <td>460.0</td>
+      <td>132.0</td>
+      <td>0.34</td>
+      <td>0.13</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>13.0</td>
+      <td>1.3</td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>62</td>
+      <td>28Q190</td>
+      <td>J.H.S. 190 RUSSELL SAGE</td>
+      <td>344.0</td>
+      <td>172.0</td>
+      <td>0.49</td>
+      <td>0.35</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>63</td>
+      <td>25Q185</td>
+      <td>J.H.S. 185 EDWARD BLEEKER</td>
+      <td>494.0</td>
+      <td>250.0</td>
+      <td>0.46</td>
+      <td>0.32</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>431</th>
+      <td>64</td>
+      <td>04M171</td>
+      <td>P.S. 171 PATRICK HENRY</td>
+      <td>95.0</td>
+      <td>43.0</td>
+      <td>0.47</td>
+      <td>0.89</td>
+      <td>2.0</td>
+      <td>1.0</td>
+      <td>5.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>352</th>
+      <td>65</td>
+      <td>11X019</td>
+      <td>P.S. 019 JUDITH K. WEISS</td>
+      <td>58.0</td>
+      <td>24.0</td>
+      <td>0.52</td>
+      <td>0.36</td>
+      <td>4.0</td>
+      <td>1.0</td>
+      <td>2.0</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>349</th>
+      <td>66</td>
+      <td>26Q178</td>
+      <td>P.S./ IS 178 HOLLISWOOD</td>
+      <td>59.0</td>
+      <td>23.0</td>
+      <td>0.38</td>
+      <td>0.17</td>
+      <td>8.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>405</th>
+      <td>67</td>
+      <td>06M187</td>
+      <td>P.S./I.S. 187 HUDSON CLIFFS</td>
+      <td>97.0</td>
+      <td>36.0</td>
+      <td>0.34</td>
+      <td>0.61</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>406</th>
+      <td>68</td>
+      <td>11X498</td>
+      <td>P.S./M.S. 11X498 - VAN NEST ACADEMY</td>
+      <td>91.0</td>
+      <td>36.0</td>
+      <td>0.37</td>
+      <td>0.78</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>0.8</td>
+    </tr>
+    <tr>
+      <th>373</th>
+      <td>69</td>
+      <td>29Q295</td>
+      <td>P.S./I.S. 295</td>
+      <td>58.0</td>
+      <td>27.0</td>
+      <td>0.43</td>
+      <td>0.53</td>
+      <td>7.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>357</th>
+      <td>70</td>
+      <td>20K609</td>
+      <td>URBAN ASSEMBLY SCHOOL FOR CRIMINAL JUSTICE</td>
+      <td>78.0</td>
+      <td>24.0</td>
+      <td>0.14</td>
+      <td>0.40</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>0.6</td>
+    </tr>
+    <tr>
+      <th>183</th>
+      <td>71</td>
+      <td>21K121</td>
+      <td>P.S. 121 NELSON A. ROCKEFELLER</td>
+      <td>35.0</td>
+      <td>7.0</td>
+      <td>0.22</td>
+      <td>0.45</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>5.0</td>
+      <td>0.5</td>
+    </tr>
+    <tr>
+      <th>390</th>
+      <td>72</td>
+      <td>02M422</td>
+      <td>QUEST TO LEARN</td>
+      <td>74.0</td>
+      <td>33.0</td>
+      <td>0.16</td>
+      <td>0.54</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>3.0</td>
+      <td>0.3</td>
+    </tr>
+    <tr>
+      <th>329</th>
+      <td>73</td>
+      <td>05M129</td>
+      <td>P.S. 129 JOHN H. FINLEY</td>
+      <td>63.0</td>
+      <td>21.0</td>
+      <td>0.38</td>
+      <td>0.93</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>10.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>305</th>
+      <td>74</td>
+      <td>10X243</td>
+      <td>WEST BRONX ACADEMY FOR THE FUTURE</td>
+      <td>93.0</td>
+      <td>18.0</td>
+      <td>0.08</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>310</th>
+      <td>75</td>
+      <td>18K581</td>
+      <td>EAST FLATBUSH COMMUNITY RESEARCH SCHOOL</td>
+      <td>58.0</td>
+      <td>18.0</td>
+      <td>0.56</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>11.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>309</th>
+      <td>76</td>
+      <td>17K354</td>
+      <td>THE SCHOOL OF INTEGRATED LEARNING</td>
+      <td>57.0</td>
+      <td>18.0</td>
+      <td>0.26</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>10.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>250</th>
+      <td>77</td>
+      <td>23K664</td>
+      <td>BROOKLYN ENVIRONMENTAL EXPLORATION SCHOOL (BEES)</td>
+      <td>27.0</td>
+      <td>12.0</td>
+      <td>0.34</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>2.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>308</th>
+      <td>78</td>
+      <td>15K136</td>
+      <td>I.S. 136 CHARLES O. DEWEY</td>
+      <td>160.0</td>
+      <td>18.0</td>
+      <td>0.10</td>
+      <td>0.87</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>55.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>330</th>
+      <td>79</td>
+      <td>08X467</td>
+      <td>MOTT HALL COMMUNITY SCHOOL</td>
+      <td>111.0</td>
+      <td>21.0</td>
+      <td>0.18</td>
+      <td>0.79</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>307</th>
+      <td>80</td>
+      <td>14K084</td>
+      <td>P.S. 084 JOSE DE DIEGO</td>
+      <td>68.0</td>
+      <td>18.0</td>
+      <td>0.26</td>
+      <td>0.65</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>11.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>306</th>
+      <td>81</td>
+      <td>12X318</td>
+      <td>I.S. X318 MATH, SCIENCE &amp; TECHNOLOGY THROUGH ARTS</td>
+      <td>96.0</td>
+      <td>18.0</td>
+      <td>0.17</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>30.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>304</th>
+      <td>82</td>
+      <td>09X361</td>
+      <td>THE HIGHBRIDGE GREEN SCHOOL</td>
+      <td>135.0</td>
+      <td>18.0</td>
+      <td>0.13</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>50.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>312</th>
+      <td>83</td>
+      <td>31R028</td>
+      <td>THE EAGLE ACADEMY FOR YOUNG MEN OF STATEN ISLAND</td>
+      <td>60.0</td>
+      <td>18.0</td>
+      <td>0.16</td>
+      <td>0.83</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>10.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>303</th>
+      <td>84</td>
+      <td>07X223</td>
+      <td>M.S. 223 THE LABORATORY SCHOOL OF FINANCE AND ...</td>
+      <td>100.0</td>
+      <td>18.0</td>
+      <td>0.09</td>
+      <td>0.99</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>33.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>302</th>
+      <td>85</td>
+      <td>06M209</td>
+      <td>HAMILTON GRANGE MIDDLE SCHOOL</td>
+      <td>92.0</td>
+      <td>18.0</td>
+      <td>0.21</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>331</th>
+      <td>86</td>
+      <td>09X328</td>
+      <td>NEW MILLENNIUM BUSINESS ACADEMY MIDDLE SCHOOL</td>
+      <td>80.0</td>
+      <td>21.0</td>
+      <td>0.28</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>19.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>301</th>
+      <td>87</td>
+      <td>29Q355</td>
+      <td>COLLABORATIVE ARTS MIDDLE SCHOOL</td>
+      <td>93.0</td>
+      <td>17.0</td>
+      <td>0.16</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>30.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>251</th>
+      <td>88</td>
+      <td>24Q087</td>
+      <td>P.S./I.S. 087 MIDDLE VILLAGE</td>
+      <td>81.0</td>
+      <td>12.0</td>
+      <td>0.16</td>
+      <td>0.51</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>15.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>299</th>
+      <td>89</td>
+      <td>19K089</td>
+      <td>P.S. 089 CYPRESS HILLS</td>
+      <td>49.0</td>
+      <td>17.0</td>
+      <td>0.31</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>8.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>252</th>
+      <td>90</td>
+      <td>28Q008</td>
+      <td>J.H.S. 008 RICHARD S. GROSSLEY</td>
+      <td>127.0</td>
+      <td>12.0</td>
+      <td>0.12</td>
+      <td>0.77</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>41.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>311</th>
+      <td>91</td>
+      <td>29Q192</td>
+      <td>I.S. 192 THE LINDEN</td>
+      <td>152.0</td>
+      <td>18.0</td>
+      <td>0.11</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>57.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>313</th>
+      <td>92</td>
+      <td>01M378</td>
+      <td>SCHOOL FOR GLOBAL LEADERS</td>
+      <td>90.0</td>
+      <td>19.0</td>
+      <td>0.19</td>
+      <td>0.81</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>22.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>328</th>
+      <td>93</td>
+      <td>03M421</td>
+      <td>WEST PREP ACADEMY</td>
+      <td>74.0</td>
+      <td>21.0</td>
+      <td>0.28</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>15.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>320</th>
+      <td>94</td>
+      <td>04M825</td>
+      <td>ISAAC NEWTON MIDDLE SCHOOL FOR MATH &amp; SCIENCE</td>
+      <td>59.0</td>
+      <td>20.0</td>
+      <td>0.36</td>
+      <td>0.94</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>9.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>327</th>
+      <td>95</td>
+      <td>32K377</td>
+      <td>P.S. 377 ALEJANDRINA B. DE GAUTIER</td>
+      <td>51.0</td>
+      <td>20.0</td>
+      <td>0.44</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>6.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>326</th>
+      <td>96</td>
+      <td>23K518</td>
+      <td>KAPPA V (KNOWLEDGE AND POWER PREPARATORY ACADEMY)</td>
+      <td>77.0</td>
+      <td>20.0</td>
+      <td>0.26</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>19.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>442</th>
+      <td>97</td>
+      <td>19K452</td>
+      <td>FREDERICK DOUGLASS ACADEMY VIII MIDDLE SCHOOL</td>
+      <td>119.0</td>
+      <td>52.0</td>
+      <td>0.51</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>8.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>324</th>
+      <td>98</td>
+      <td>16K681</td>
+      <td>MADIBA PREP MIDDLE SCHOOL</td>
+      <td>33.0</td>
+      <td>20.0</td>
+      <td>0.32</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>-3.0</td>
+      <td>-0.0</td>
+    </tr>
+    <tr>
+      <th>323</th>
+      <td>99</td>
+      <td>13K113</td>
+      <td>M.S. 113 RONALD EDMONDS LEARNING CENTER</td>
+      <td>104.0</td>
+      <td>20.0</td>
+      <td>0.23</td>
+      <td>0.93</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>31.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>322</th>
+      <td>100</td>
+      <td>12X383</td>
+      <td>EMOLIOR ACADEMY</td>
+      <td>91.0</td>
+      <td>20.0</td>
+      <td>0.23</td>
+      <td>0.89</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>24.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>235</th>
+      <td>365</td>
+      <td>08X123</td>
+      <td>J.H.S. 123 JAMES M. KIERAN</td>
+      <td>128.0</td>
+      <td>11.0</td>
+      <td>0.12</td>
+      <td>0.99</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>54.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>234</th>
+      <td>366</td>
+      <td>05M514</td>
+      <td>NEW DESIGN MIDDLE SCHOOL</td>
+      <td>46.0</td>
+      <td>11.0</td>
+      <td>0.16</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>12.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>233</th>
+      <td>367</td>
+      <td>04M072</td>
+      <td>THE LEXINGTON ACADEMY</td>
+      <td>81.0</td>
+      <td>11.0</td>
+      <td>0.13</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>29.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>445</th>
+      <td>368</td>
+      <td>30Q010</td>
+      <td>I.S. 010 HORACE GREELEY</td>
+      <td>233.0</td>
+      <td>56.0</td>
+      <td>0.22</td>
+      <td>0.58</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>36.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>231</th>
+      <td>369</td>
+      <td>03M256</td>
+      <td>M.S. 256 ACADEMIC &amp; ATHLETIC EXCELLENCE</td>
+      <td>48.0</td>
+      <td>11.0</td>
+      <td>0.22</td>
+      <td>0.88</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>12.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>230</th>
+      <td>370</td>
+      <td>01M301</td>
+      <td>TECHNOLOGY, ARTS, AND SCIENCES STUDIO</td>
+      <td>23.0</td>
+      <td>11.0</td>
+      <td>0.21</td>
+      <td>0.84</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>229</th>
+      <td>371</td>
+      <td>32K562</td>
+      <td>EVERGREEN MIDDLE SCHOOL FOR URBAN EXPLORATION</td>
+      <td>125.0</td>
+      <td>10.0</td>
+      <td>0.10</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>52.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>228</th>
+      <td>372</td>
+      <td>29Q283</td>
+      <td>PREPARATORY ACADEMY FOR WRITERS: A COLLEGE BOA...</td>
+      <td>80.0</td>
+      <td>10.0</td>
+      <td>0.07</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>227</th>
+      <td>373</td>
+      <td>29Q138</td>
+      <td>P.S./M.S. 138 SUNRISE</td>
+      <td>116.0</td>
+      <td>10.0</td>
+      <td>0.09</td>
+      <td>0.92</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>45.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>204</th>
+      <td>374</td>
+      <td>08X376</td>
+      <td>ANTONIA PANTOJA PREPARATORY ACADEMY: A COLLEGE...</td>
+      <td>79.0</td>
+      <td>9.0</td>
+      <td>0.08</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>222</th>
+      <td>375</td>
+      <td>12X384</td>
+      <td>ENTRADA ACADEMY</td>
+      <td>84.0</td>
+      <td>10.0</td>
+      <td>0.13</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>32.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>202</th>
+      <td>376</td>
+      <td>07X031</td>
+      <td>P.S./M.S. 031 THE WILLIAM LLOYD GARRISON</td>
+      <td>84.0</td>
+      <td>9.0</td>
+      <td>0.11</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>32.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>175</th>
+      <td>377</td>
+      <td>04M050</td>
+      <td>P.S. 050 VITO MARCANTONIO</td>
+      <td>26.0</td>
+      <td>7.0</td>
+      <td>0.35</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>6.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>164</th>
+      <td>378</td>
+      <td>10X037</td>
+      <td>P.S. X037 - MULTIPLE INTELLIGENCE SCHOOL</td>
+      <td>50.0</td>
+      <td>6.0</td>
+      <td>0.08</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>19.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>181</th>
+      <td>379</td>
+      <td>17K484</td>
+      <td>RONALD EDMONDS LEARNING CENTER II</td>
+      <td>58.0</td>
+      <td>7.0</td>
+      <td>0.15</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>22.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>180</th>
+      <td>380</td>
+      <td>14K050</td>
+      <td>J.H.S. 050 JOHN D. WELLS</td>
+      <td>109.0</td>
+      <td>7.0</td>
+      <td>0.08</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>47.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>165</th>
+      <td>381</td>
+      <td>10X225</td>
+      <td>THEATRE ARTS PRODUCTION COMPANY SCHOOL</td>
+      <td>74.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>30.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>179</th>
+      <td>382</td>
+      <td>12X341</td>
+      <td>ACCION ACADEMY</td>
+      <td>48.0</td>
+      <td>7.0</td>
+      <td>0.12</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>17.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>166</th>
+      <td>383</td>
+      <td>12X372</td>
+      <td>URBAN ASSEMBLY SCHOOL FOR WILDLIFE CONSERVATION</td>
+      <td>59.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>23.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>167</th>
+      <td>384</td>
+      <td>14K586</td>
+      <td>LYONS COMMUNITY SCHOOL</td>
+      <td>57.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>22.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>178</th>
+      <td>385</td>
+      <td>12X211</td>
+      <td>P.S. 211</td>
+      <td>77.0</td>
+      <td>7.0</td>
+      <td>0.08</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>32.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>177</th>
+      <td>386</td>
+      <td>09X219</td>
+      <td>I.S. 219 NEW VENTURE SCHOOL</td>
+      <td>118.0</td>
+      <td>7.0</td>
+      <td>0.06</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>52.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>168</th>
+      <td>387</td>
+      <td>15K448</td>
+      <td>BROOKLYN SECONDARY SCHOOL FOR COLLABORATIVE ST...</td>
+      <td>89.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.85</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>33.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>169</th>
+      <td>388</td>
+      <td>17K353</td>
+      <td>ELIJAH STROUD MIDDLE SCHOOL</td>
+      <td>52.0</td>
+      <td>6.0</td>
+      <td>0.13</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>20.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>176</th>
+      <td>389</td>
+      <td>09X004</td>
+      <td>P.S./M.S. 004 CROTONA PARK WEST</td>
+      <td>69.0</td>
+      <td>7.0</td>
+      <td>0.11</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>28.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>201</th>
+      <td>390</td>
+      <td>06M328</td>
+      <td>M.S. 328 - MANHATTAN MIDDLE SCHOOL FOR SCIENTI...</td>
+      <td>79.0</td>
+      <td>9.0</td>
+      <td>0.09</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>30.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>170</th>
+      <td>391</td>
+      <td>19K422</td>
+      <td>SPRING CREEK COMMUNITY SCHOOL</td>
+      <td>86.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>36.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>171</th>
+      <td>392</td>
+      <td>23K668</td>
+      <td>RIVERDALE AVENUE MIDDLE SCHOOL</td>
+      <td>38.0</td>
+      <td>6.0</td>
+      <td>0.13</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>13.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>172</th>
+      <td>393</td>
+      <td>29Q259</td>
+      <td>PATHWAYS COLLEGE PREPARATORY SCHOOL: A COLLEGE...</td>
+      <td>79.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.94</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>32.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>173</th>
+      <td>394</td>
+      <td>30Q235</td>
+      <td>ACADEMY FOR NEW AMERICANS</td>
+      <td>39.0</td>
+      <td>6.0</td>
+      <td>0.12</td>
+      <td>0.63</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>9.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>163</th>
+      <td>395</td>
+      <td>07X296</td>
+      <td>SOUTH BRONX ACADEMY FOR APPLIED MEDIA</td>
+      <td>96.0</td>
+      <td>6.0</td>
+      <td>0.07</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>42.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>182</th>
+      <td>396</td>
+      <td>19K404</td>
+      <td>ACADEMY FOR YOUNG WRITERS</td>
+      <td>82.0</td>
+      <td>7.0</td>
+      <td>0.04</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>34.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>184</th>
+      <td>397</td>
+      <td>27Q043</td>
+      <td>P.S. 043</td>
+      <td>71.0</td>
+      <td>7.0</td>
+      <td>0.11</td>
+      <td>0.91</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>27.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>192</th>
+      <td>398</td>
+      <td>12X217</td>
+      <td>SCHOOL OF PERFORMING ARTS</td>
+      <td>92.0</td>
+      <td>8.0</td>
+      <td>0.08</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>37.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>200</th>
+      <td>399</td>
+      <td>04M108</td>
+      <td>P.S. 108 ASSEMBLYMAN ANGELO DEL TORO EDUCATION...</td>
+      <td>59.0</td>
+      <td>9.0</td>
+      <td>0.09</td>
+      <td>0.92</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>19.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>198</th>
+      <td>400</td>
+      <td>32K384</td>
+      <td>P.S. /I.S. 384 FRANCES E. CARTER</td>
+      <td>64.0</td>
+      <td>8.0</td>
+      <td>0.13</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>24.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>197</th>
+      <td>401</td>
+      <td>32K291</td>
+      <td>J.H.S. 291 ROLAND HAYES</td>
+      <td>92.0</td>
+      <td>8.0</td>
+      <td>0.07</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>37.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>196</th>
+      <td>402</td>
+      <td>32K162</td>
+      <td>J.H.S. 162 THE WILLOUGHBY</td>
+      <td>118.0</td>
+      <td>8.0</td>
+      <td>0.04</td>
+      <td>0.95</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>50.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>195</th>
+      <td>403</td>
+      <td>23K155</td>
+      <td>P.S./ I.S. 155 NICHOLAS HERKIMER</td>
+      <td>52.0</td>
+      <td>8.0</td>
+      <td>0.23</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>18.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>194</th>
+      <td>404</td>
+      <td>16K308</td>
+      <td>P.S. 308 CLARA CARDWELL</td>
+      <td>37.0</td>
+      <td>8.0</td>
+      <td>0.14</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>10.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>193</th>
+      <td>405</td>
+      <td>13K266</td>
+      <td>M.S. K266 - PARK PLACE COMMUNITY MIDDLE SCHOOL</td>
+      <td>39.0</td>
+      <td>8.0</td>
+      <td>0.11</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>12.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>161</th>
+      <td>406</td>
+      <td>06M018</td>
+      <td>P.S. 018 PARK TERRACE</td>
+      <td>39.0</td>
+      <td>6.0</td>
+      <td>0.11</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>14.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>162</th>
+      <td>407</td>
+      <td>06M348</td>
+      <td>WASHINGTON HEIGHTS EXPEDITIONARY LEARNING SCHOOL</td>
+      <td>87.0</td>
+      <td>6.0</td>
+      <td>0.03</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>37.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>191</th>
+      <td>408</td>
+      <td>10X206</td>
+      <td>I.S. 206 ANN MERSEREAU</td>
+      <td>64.0</td>
+      <td>8.0</td>
+      <td>0.11</td>
+      <td>0.97</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>24.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>190</th>
+      <td>409</td>
+      <td>07X221</td>
+      <td>SOUTH BRONX PREPARATORY: A COLLEGE BOARD SCHOOL</td>
+      <td>100.0</td>
+      <td>8.0</td>
+      <td>0.04</td>
+      <td>0.96</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>41.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>189</th>
+      <td>410</td>
+      <td>07X005</td>
+      <td>P.S. 5 PORT MORRIS</td>
+      <td>99.0</td>
+      <td>8.0</td>
+      <td>0.11</td>
+      <td>0.98</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>42.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>188</th>
+      <td>411</td>
+      <td>06M210</td>
+      <td>P.S./I.S. 210 - TWENTY-FIRST CENTURY ACADEMY F...</td>
+      <td>59.0</td>
+      <td>8.0</td>
+      <td>0.16</td>
+      <td>0.99</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>22.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>187</th>
+      <td>412</td>
+      <td>04M610</td>
+      <td>YOUNG WOMEN'S LEADERSHIP SCHOOL</td>
+      <td>52.0</td>
+      <td>8.0</td>
+      <td>0.06</td>
+      <td>0.85</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>16.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>186</th>
+      <td>413</td>
+      <td>32K349</td>
+      <td>I.S. 349 MATH, SCIENCE &amp; TECH.</td>
+      <td>106.0</td>
+      <td>7.0</td>
+      <td>0.08</td>
+      <td>0.99</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>47.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>185</th>
+      <td>414</td>
+      <td>27Q105</td>
+      <td>P.S. 105 THE BAY SCHOOL</td>
+      <td>77.0</td>
+      <td>7.0</td>
+      <td>0.08</td>
+      <td>0.94</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>30.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>174</th>
+      <td>415</td>
+      <td>03M165</td>
+      <td>P.S. 165 ROBERT E. SIMON</td>
+      <td>46.0</td>
+      <td>7.0</td>
+      <td>0.13</td>
+      <td>0.82</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>13.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>216</th>
+      <td>416</td>
+      <td>03M859</td>
+      <td>SPECIAL MUSIC SCHOOL</td>
+      <td>14.0</td>
+      <td>10.0</td>
+      <td>0.17</td>
+      <td>0.28</td>
+      <td>5.0</td>
+      <td>0.0</td>
+      <td>-1.0</td>
+      <td>-0.5</td>
+    </tr>
+    <tr>
+      <th>423</th>
+      <td>417</td>
+      <td>02M177</td>
+      <td>YORKVILLE EAST MIDDLE SCHOOL</td>
+      <td>76.0</td>
+      <td>42.0</td>
+      <td>0.51</td>
+      <td>0.40</td>
+      <td>8.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-0.8</td>
+    </tr>
+    <tr>
+      <th>74</th>
+      <td>418</td>
+      <td>01M839</td>
+      <td>TOMPKINS SQUARE MIDDLE SCHOOL</td>
+      <td>122.0</td>
+      <td>66.0</td>
+      <td>0.52</td>
+      <td>0.53</td>
+      <td>4.0</td>
+      <td>1.0</td>
+      <td>-2.0</td>
+      <td>-0.8</td>
+    </tr>
+    <tr>
+      <th>43</th>
+      <td>419</td>
+      <td>30Q300</td>
+      <td>THE 30TH AVENUE SCHOOL (G&amp;T CITYWIDE)</td>
+      <td>68.0</td>
+      <td>39.0</td>
+      <td>0.95</td>
+      <td>0.14</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <th>271</th>
+      <td>420</td>
+      <td>02M442</td>
+      <td>BALLET TECH, NYC PUBLIC SCHOOL FOR DANCE</td>
+      <td>23.0</td>
+      <td>15.0</td>
+      <td>0.60</td>
+      <td>0.41</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <th>82</th>
+      <td>421</td>
+      <td>02M397</td>
+      <td>SPRUCE STREET SCHOOL</td>
+      <td>58.0</td>
+      <td>36.0</td>
+      <td>0.65</td>
+      <td>0.15</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <th>53</th>
+      <td>422</td>
+      <td>02M276</td>
+      <td>BATTERY PARK CITY SCHOOL</td>
+      <td>92.0</td>
+      <td>56.0</td>
+      <td>0.66</td>
+      <td>0.15</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <th>61</th>
+      <td>423</td>
+      <td>03M245</td>
+      <td>M.S. M245 THE COMPUTER SCHOOL</td>
+      <td>134.0</td>
+      <td>70.0</td>
+      <td>0.53</td>
+      <td>0.40</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-1.0</td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>424</td>
+      <td>02M114</td>
+      <td>EAST SIDE MIDDLE SCHOOL</td>
+      <td>150.0</td>
+      <td>124.0</td>
+      <td>0.81</td>
+      <td>0.12</td>
+      <td>3.0</td>
+      <td>1.0</td>
+      <td>-6.0</td>
+      <td>-1.8</td>
+    </tr>
+    <tr>
+      <th>72</th>
+      <td>425</td>
+      <td>03M243</td>
+      <td>M.S. 243 CENTER SCHOOL</td>
+      <td>57.0</td>
+      <td>38.0</td>
+      <td>0.66</td>
+      <td>0.27</td>
+      <td>9.0</td>
+      <td>1.0</td>
+      <td>-2.0</td>
+      <td>-1.8</td>
+    </tr>
+    <tr>
+      <th>96</th>
+      <td>426</td>
+      <td>02M896</td>
+      <td>LOWER MANHATTAN COMMUNITY MIDDLE SCHOOL</td>
+      <td>124.0</td>
+      <td>70.0</td>
+      <td>0.54</td>
+      <td>0.29</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-2.0</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <th>80</th>
+      <td>427</td>
+      <td>20K104</td>
+      <td>P.S./I.S. 104 THE FORT HAMILTON SCHOOL</td>
+      <td>158.0</td>
+      <td>87.0</td>
+      <td>0.51</td>
+      <td>0.28</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-2.0</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <th>55</th>
+      <td>428</td>
+      <td>25Q294</td>
+      <td>BELL ACADEMY</td>
+      <td>99.0</td>
+      <td>69.0</td>
+      <td>0.50</td>
+      <td>0.31</td>
+      <td>4.0</td>
+      <td>1.0</td>
+      <td>-6.0</td>
+      <td>-2.4</td>
+    </tr>
+    <tr>
+      <th>64</th>
+      <td>429</td>
+      <td>02M126</td>
+      <td>P.S. 126 JACOB AUGUST RIIS</td>
+      <td>111.0</td>
+      <td>66.0</td>
+      <td>0.58</td>
+      <td>0.32</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-3.0</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>430</td>
+      <td>24Q119</td>
+      <td>I.S. 119 THE GLENDALE</td>
+      <td>187.0</td>
+      <td>104.0</td>
+      <td>0.47</td>
+      <td>0.32</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-3.0</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <th>76</th>
+      <td>431</td>
+      <td>25Q499</td>
+      <td>THE QUEENS COLLEGE SCHOOL FOR MATH, SCIENCE AN...</td>
+      <td>54.0</td>
+      <td>40.0</td>
+      <td>0.75</td>
+      <td>0.35</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-4.0</td>
+      <td>-4.0</td>
+    </tr>
+    <tr>
+      <th>58</th>
+      <td>432</td>
+      <td>20K229</td>
+      <td>P.S. 229 DYKER</td>
+      <td>115.0</td>
+      <td>93.0</td>
+      <td>0.72</td>
+      <td>0.13</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-4.0</td>
+      <td>-4.0</td>
+    </tr>
+    <tr>
+      <th>51</th>
+      <td>433</td>
+      <td>01M184</td>
+      <td>P.S. 184M SHUANG WEN</td>
+      <td>83.0</td>
+      <td>67.0</td>
+      <td>0.77</td>
+      <td>0.15</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-4.0</td>
+      <td>-4.0</td>
+    </tr>
+    <tr>
+      <th>38</th>
+      <td>434</td>
+      <td>04M012</td>
+      <td>TAG YOUNG SCHOLARS</td>
+      <td>86.0</td>
+      <td>54.0</td>
+      <td>0.96</td>
+      <td>0.44</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-4.0</td>
+      <td>-4.0</td>
+    </tr>
+    <tr>
+      <th>57</th>
+      <td>435</td>
+      <td>25Q281</td>
+      <td>EAST-WEST SCHOOL OF INTERNATIONAL STUDIES</td>
+      <td>100.0</td>
+      <td>70.0</td>
+      <td>0.35</td>
+      <td>0.28</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>-5.0</td>
+      <td>-5.0</td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>436</td>
+      <td>20K686</td>
+      <td>BROOKLYN SCHOOL OF INQUIRY</td>
+      <td>58.0</td>
+      <td>80.0</td>
+      <td>0.94</td>
+      <td>0.10</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-5.0</td>
+      <td>-5.0</td>
+    </tr>
+    <tr>
+      <th>34</th>
+      <td>437</td>
+      <td>26Q172</td>
+      <td>IRWIN ALTMAN MIDDLE SCHOOL 172</td>
+      <td>331.0</td>
+      <td>189.0</td>
+      <td>0.55</td>
+      <td>0.23</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-5.0</td>
+      <td>-5.0</td>
+    </tr>
+    <tr>
+      <th>50</th>
+      <td>438</td>
+      <td>28Q680</td>
+      <td>QUEENS GATEWAY TO HEALTH SCIENCES SECONDARY SC...</td>
+      <td>95.0</td>
+      <td>61.0</td>
+      <td>0.32</td>
+      <td>0.46</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>-6.0</td>
+      <td>-6.0</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>439</td>
+      <td>03M334</td>
+      <td>THE ANDERSON SCHOOL</td>
+      <td>64.0</td>
+      <td>75.0</td>
+      <td>0.98</td>
+      <td>0.13</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-6.0</td>
+      <td>-6.0</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>440</td>
+      <td>02M255</td>
+      <td>M.S. 255 SALK SCHOOL OF SCIENCE</td>
+      <td>128.0</td>
+      <td>108.0</td>
+      <td>0.84</td>
+      <td>0.13</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-6.0</td>
+      <td>-6.0</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>441</td>
+      <td>02M167</td>
+      <td>J.H.S. 167 ROBERT F. WAGNER</td>
+      <td>457.0</td>
+      <td>258.0</td>
+      <td>0.60</td>
+      <td>0.27</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-7.0</td>
+      <td>-7.0</td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>442</td>
+      <td>30Q122</td>
+      <td>P.S. 122 MAMIE FAY</td>
+      <td>94.0</td>
+      <td>74.0</td>
+      <td>0.98</td>
+      <td>0.27</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-7.0</td>
+      <td>-7.0</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>443</td>
+      <td>26Q074</td>
+      <td>J.H.S. 074 NATHANIEL HAWTHORNE</td>
+      <td>369.0</td>
+      <td>233.0</td>
+      <td>0.55</td>
+      <td>0.15</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-7.0</td>
+      <td>-7.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>444</td>
+      <td>02M312</td>
+      <td>NEW YORK CITY LAB MIDDLE SCHOOL FOR COLLABORAT...</td>
+      <td>177.0</td>
+      <td>163.0</td>
+      <td>0.90</td>
+      <td>0.10</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-7.0</td>
+      <td>-7.0</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>445</td>
+      <td>20K187</td>
+      <td>THE CHRISTA MCAULIFFE SCHOOL\I.S. 187</td>
+      <td>266.0</td>
+      <td>251.0</td>
+      <td>0.91</td>
+      <td>0.07</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-8.0</td>
+      <td>-8.0</td>
+    </tr>
+    <tr>
+      <th>32</th>
+      <td>446</td>
+      <td>20K180</td>
+      <td>THE SEEALL ACADEMY</td>
+      <td>159.0</td>
+      <td>113.0</td>
+      <td>0.64</td>
+      <td>0.29</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-9.0</td>
+      <td>-9.0</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>447</td>
+      <td>26Q067</td>
+      <td>J.H.S. 067 LOUIS PASTEUR</td>
+      <td>279.0</td>
+      <td>211.0</td>
+      <td>0.68</td>
+      <td>0.14</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-10.0</td>
+      <td>-10.0</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>448</td>
+      <td>01M539</td>
+      <td>NEW EXPLORATIONS INTO SCIENCE, TECHNOLOGY AND ...</td>
+      <td>149.0</td>
+      <td>126.0</td>
+      <td>0.44</td>
+      <td>0.20</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-10.0</td>
+      <td>-10.0</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>449</td>
+      <td>22K234</td>
+      <td>J.H.S. 234 ARTHUR W. CUNNINGHAM</td>
+      <td>650.0</td>
+      <td>370.0</td>
+      <td>0.54</td>
+      <td>0.28</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-11.0</td>
+      <td>-11.0</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>450</td>
+      <td>20K201</td>
+      <td>J.H.S. 201 THE DYKER HEIGHTS</td>
+      <td>508.0</td>
+      <td>338.0</td>
+      <td>0.64</td>
+      <td>0.14</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-11.0</td>
+      <td>-11.0</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>451</td>
+      <td>26Q216</td>
+      <td>J.H.S. 216 GEORGE J. RYAN</td>
+      <td>470.0</td>
+      <td>304.0</td>
+      <td>0.62</td>
+      <td>0.17</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-11.0</td>
+      <td>-11.0</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>452</td>
+      <td>26Q158</td>
+      <td>M.S. 158 MARIE CURIE</td>
+      <td>351.0</td>
+      <td>236.0</td>
+      <td>0.61</td>
+      <td>0.19</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-11.0</td>
+      <td>-11.0</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>453</td>
+      <td>30Q580</td>
+      <td>BACCALAUREATE SCHOOL FOR GLOBAL EDUCATION</td>
+      <td>63.0</td>
+      <td>94.0</td>
+      <td>0.36</td>
+      <td>0.17</td>
+      <td>10.0</td>
+      <td>0.0</td>
+      <td>-11.0</td>
+      <td>-11.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>454</td>
+      <td>21K239</td>
+      <td>MARK TWAIN I.S. 239 FOR THE GIFTED &amp; TALENTED</td>
+      <td>422.0</td>
+      <td>336.0</td>
+      <td>0.78</td>
+      <td>0.12</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-14.0</td>
+      <td>-14.0</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>455</td>
+      <td>21K098</td>
+      <td>I.S. 98 BAY ACADEMY</td>
+      <td>499.0</td>
+      <td>372.0</td>
+      <td>0.75</td>
+      <td>0.13</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-15.0</td>
+      <td>-15.0</td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>456</td>
+      <td>15K447</td>
+      <td>THE MATH &amp; SCIENCE EXPLORATORY SCHOOL</td>
+      <td>176.0</td>
+      <td>134.0</td>
+      <td>0.75</td>
+      <td>0.37</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-16.0</td>
+      <td>-16.0</td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>457</td>
+      <td>02M104</td>
+      <td>J.H.S. 104 SIMON BARUCH</td>
+      <td>378.0</td>
+      <td>260.0</td>
+      <td>0.67</td>
+      <td>0.29</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-19.0</td>
+      <td>-19.0</td>
+    </tr>
+    <tr>
+      <th>42</th>
+      <td>458</td>
+      <td>14K318</td>
+      <td>I.S. 318 EUGENIO MARIA DE HOSTOS</td>
+      <td>371.0</td>
+      <td>222.0</td>
+      <td>0.47</td>
+      <td>0.80</td>
+      <td>8.0</td>
+      <td>1.0</td>
+      <td>-26.0</td>
+      <td>-20.8</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>459</td>
+      <td>03M054</td>
+      <td>J.H.S. 054 BOOKER T. WASHINGTON</td>
+      <td>295.0</td>
+      <td>257.0</td>
+      <td>0.91</td>
+      <td>0.20</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-21.0</td>
+      <td>-21.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>460</td>
+      <td>15K051</td>
+      <td>M.S. 51 WILLIAM ALEXANDER</td>
+      <td>379.0</td>
+      <td>280.0</td>
+      <td>0.75</td>
+      <td>0.29</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-25.0</td>
+      <td>-25.0</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>461</td>
+      <td>24Q073</td>
+      <td>I.S. 73 - THE FRANK SANSIVIERI INTERMEDIATE SC...</td>
+      <td>687.0</td>
+      <td>394.0</td>
+      <td>0.51</td>
+      <td>0.60</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-26.0</td>
+      <td>-26.0</td>
+    </tr>
+    <tr>
+      <th>463</th>
+      <td>462</td>
+      <td>32K383</td>
+      <td>J.H.S. 383 PHILIPPA SCHUYLER</td>
+      <td>278.0</td>
+      <td>179.0</td>
+      <td>0.63</td>
+      <td>0.93</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-35.0</td>
+      <td>-35.0</td>
+    </tr>
+    <tr>
+      <th>105</th>
+      <td>463</td>
+      <td>18K235</td>
+      <td>P.S. 235 JANICE MARIE KNIGHT SCHOOL</td>
+      <td>92.0</td>
+      <td>89.0</td>
+      <td>0.97</td>
+      <td>0.95</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-40.0</td>
+      <td>-40.0</td>
+    </tr>
+    <tr>
+      <th>37</th>
+      <td>464</td>
+      <td>10X118</td>
+      <td>J.H.S. 118 WILLIAM W. NILES</td>
+      <td>379.0</td>
+      <td>270.0</td>
+      <td>0.64</td>
+      <td>0.81</td>
+      <td>10.0</td>
+      <td>1.0</td>
+      <td>-62.0</td>
+      <td>-62.0</td>
+    </tr>
+  </tbody>
+</table>
+<p>464 rows × 11 columns</p>
+</div>
+
+
