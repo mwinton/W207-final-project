@@ -395,7 +395,7 @@ df_passnyc.head()
 # ## Post-hoc comparison of prioritization score vs. economic need index
 # Even though economic need index was not an explicit factor in our post-classification prioritization scoring/ranking system, it is interesting to observe that there is some correlation:
 
-# In[18]:
+# In[19]:
 
 
 x = df_passnyc['score']
